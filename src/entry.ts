@@ -46,6 +46,10 @@ import ak47 from './assets/guns/ak47/ak47.glb';
 // Shot sound
 import ak47Shot from './assets/sounds/ak47_shot.wav';
 
+// Dinosaurs
+import trex from './assets/dinos/Trex.fbx';
+import apatosaurus from './assets/dinos/Apatosaurus.fbx';
+
 // Ammo box
 import ammobox from './assets/ammo/AmmoBox.fbx';
 import ammoboxTexD from './assets/ammo/AmmoBox_D.tga.png';
@@ -86,6 +90,8 @@ interface Assets {
   ak47?: any;
   muzzleFlash?: THREE.Object3D;
   ak47Shot?: AudioBuffer;
+  trex?: THREE.Group;
+  apatosaurus?: THREE.Group;
   ammobox?: THREE.Group;
   ammoboxTexD?: THREE.Texture;
   ammoboxTexN?: THREE.Texture;
@@ -255,6 +261,9 @@ class FPSGameApp {
     promises.push(this.AddAsset(runAnim, fbxLoader, 'runAnim'));
     promises.push(this.AddAsset(attackAnim, fbxLoader, 'attackAnim'));
     promises.push(this.AddAsset(dieAnim, fbxLoader, 'dieAnim'));
+    // Dinosaurs
+    promises.push(this.AddAsset(trex, fbxLoader, 'trex'));
+    promises.push(this.AddAsset(apatosaurus, fbxLoader, 'apatosaurus'));
     // Weapons
     promises.push(this.AddAsset(pistol, gltfLoader, 'pistol'));
     promises.push(this.AddAsset(smg, gltfLoader, 'smg'));

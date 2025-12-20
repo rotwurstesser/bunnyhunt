@@ -75,7 +75,7 @@ export class AnimationController {
    * @param model - The loaded model with animations
    */
   setupFromModel(model: THREE.Object3D): void {
-    if (this.config.source !== 'gltf-embedded') {
+    if (this.config.source !== 'gltf-embedded' && this.config.source !== 'fbx-embedded') {
       console.warn(
         `AnimationController: setupFromModel called for ${this.config.source} source. Use appropriate setup method.`
       );

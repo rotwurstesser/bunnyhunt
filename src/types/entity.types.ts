@@ -222,6 +222,12 @@ export interface AnimalConfig {
 
   /** Y offset for collider position */
   readonly colliderYOffset: number;
+
+  /** Y offset for health bar (optional, defaults to 1.8) */
+  readonly healthBarYOffset?: number;
+
+  /** Scale for health bar (optional, defaults to 1.0) */
+  readonly healthBarScale?: number;
 }
 
 /**

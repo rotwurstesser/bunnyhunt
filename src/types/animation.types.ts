@@ -24,7 +24,7 @@ export type AnimationActionName =
 /**
  * Animal types for type-safe entity identification.
  */
-export type AnimalType = 'rabbit' | 'fox' | 'mutant';
+export type AnimalType = 'rabbit' | 'fox' | 'mutant' | 'trex' | 'apatosaurus';
 
 /**
  * Weapon keys for type-safe weapon identification.
@@ -35,10 +35,11 @@ export type WeaponKey = 'rifle' | 'ak47' | 'gatling' | 'nuke';
  * Animation source types - determines how animations are loaded.
  *
  * - 'gltf-embedded': Animations embedded in GLTF/GLB model (Rabbit, Fox)
+ * - 'fbx-embedded': Animations embedded in FBX model (Dinosaurs)
  * - 'fbx-separate': Animations in separate FBX files (Mutant)
  * - 'index-based': Animations referenced by array index (Weapons - legacy)
  */
-export type AnimationSource = 'gltf-embedded' | 'fbx-separate' | 'index-based';
+export type AnimationSource = 'gltf-embedded' | 'fbx-embedded' | 'fbx-separate' | 'index-based';
 
 /**
  * Clip matcher function type.

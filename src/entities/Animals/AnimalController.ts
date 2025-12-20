@@ -107,6 +107,12 @@ export abstract class AnimalController<TState extends string> extends Component 
   /** Maximum health */
   public maxHealth: number;
 
+  /** Health bar Y offset */
+  public healthBarYOffset: number;
+
+  /** Health bar scale */
+  public healthBarScale: number;
+
   /** Whether the animal is dead */
   public isDead: boolean = false;
 
@@ -138,6 +144,8 @@ export abstract class AnimalController<TState extends string> extends Component 
     this.name = config.name;
     this.health = config.health;
     this.maxHealth = config.maxHealth;
+    this.healthBarYOffset = config.healthBarYOffset ?? 1.8;
+    this.healthBarScale = config.healthBarScale ?? 1.0;
 
     // Create animation controller
     this.animationController = new AnimationController(this.getAnimationConfig());
@@ -224,10 +232,10 @@ export abstract class AnimalController<TState extends string> extends Component 
   protected setupAnimations(): void {
     const config = this.getAnimationConfig();
 
-    if (config.source === 'gltf-embedded') {
+    if (config.source === 'gltf-embedded' || config.source === 'fbx-embedded') {
       this.animationController.setupFromModel(this.model);
     }
-    // FBX and index-based sources should override this method
+    // FBX-separate and index-based sources should override this method
   }
 
   /**
