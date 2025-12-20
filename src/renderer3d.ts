@@ -112,6 +112,88 @@ export class Renderer3D {
     window.addEventListener('mousemove', (e) => this.onMouseMove(e));
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
+
+    // Mobile touch controls
+    window.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+    window.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+    window.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
+  }
+
+  // Touch control state
+  private touchStartPos: { x: number; y: number } | null = null;
+  private touchStartTime = 0;
+  private isTouchDragging = false;
+  private lastTouchPos: { x: number; y: number } | null = null;
+  private readonly TAP_THRESHOLD = 15; // Max pixels moved to count as tap
+  private readonly TAP_TIME_THRESHOLD = 300; // Max ms for a tap
+
+  private onTouchStart(e: TouchEvent) {
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+      this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
+      this.touchStartTime = Date.now();
+      this.isTouchDragging = false;
+
+      // Update mouse position for aiming
+      this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+      this.updateWeaponAim();
+    }
+  }
+
+  private onTouchMove(e: TouchEvent) {
+    if (e.touches.length === 1 && this.touchStartPos && this.lastTouchPos) {
+      e.preventDefault();
+      const touch = e.touches[0];
+
+      const dx = touch.clientX - this.touchStartPos.x;
+      const dy = touch.clientY - this.touchStartPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If moved beyond threshold, it's a drag (pan)
+      if (distance > this.TAP_THRESHOLD) {
+        this.isTouchDragging = true;
+      }
+
+      if (this.isTouchDragging) {
+        // Pan camera based on finger movement
+        const moveDx = touch.clientX - this.lastTouchPos.x;
+        const moveDy = touch.clientY - this.lastTouchPos.y;
+
+        const panSpeed = 0.5;
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+        // Invert movement for natural panning feel
+        this.camera.position.addScaledVector(right, moveDx * panSpeed);
+        this.camera.position.addScaledVector(forward, -moveDy * panSpeed);
+        this.controls.target.addScaledVector(right, moveDx * panSpeed);
+        this.controls.target.addScaledVector(forward, -moveDy * panSpeed);
+      }
+
+      this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
+    }
+  }
+
+  private onTouchEnd(e: TouchEvent) {
+    if (this.touchStartPos) {
+      e.preventDefault();
+      const touchDuration = Date.now() - this.touchStartTime;
+
+      // If it was a quick tap without much movement, shoot!
+      if (!this.isTouchDragging && touchDuration < this.TAP_TIME_THRESHOLD) {
+        this.shoot();
+      }
+
+      this.touchStartPos = null;
+      this.lastTouchPos = null;
+      this.isTouchDragging = false;
+    }
   }
 
   private initWeapons() {

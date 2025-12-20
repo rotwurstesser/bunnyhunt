@@ -5,9 +5,9 @@ export const RUNTIME = {
 };
 
 export const CONFIG = {
-  // World Settings
+  // World Settings - Mobile Optimized
   seed: 12347,
-  worldSize: 300,
+  worldSize: 150, // Reduced from 300 for mobile performance
   cellSize: 3,
 
   // Visual Settings (Runtime)
@@ -16,8 +16,8 @@ export const CONFIG = {
     treeY: 0.0,
     grassScale: 0.6,
     grassY: 0.0,
-    grassDensity: 5.0, // New slider for density (instances per tile)
-    grassCoverage: 0.85, // New: Chance of grass on empty tiles
+    grassDensity: 3.0, // Reduced for mobile performance
+    grassCoverage: 0.6, // Reduced for mobile performance
     rabbitScale: 0.6,
     rabbitY: 0.2,
     wolfScale: 0.3,
@@ -26,17 +26,23 @@ export const CONFIG = {
 
   // Water Generation
   waterLevel: 0.39,
-  riverCount: 20,
+  riverCount: 10, // Reduced for mobile
   erosionRate: 0.1,
 
   // Vegetation Generation
-  treeDensity: 0.05,
+  treeDensity: 0.02, // Reduced from 0.05 for mobile
 
-  grassDensity: 0.1,
+  grassDensity: 0.05, // Reduced from 0.1
 
   // Animal Generation
-  rabbitCount: 800,
-  wolfCount: 20,
+  rabbitCount: 200, // Reduced from 800 for mobile
+  wolfCount: 5, // Reduced from 20 for mobile
+
+  // Spawn rates (new - for configurator)
+  spawnRates: {
+    rabbitSpawnRate: 0.01,
+    wolfSpawnRate: 0.002
+  },
 
   // Time settings
   tickRate: 50,
