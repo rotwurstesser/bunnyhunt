@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { World } from './world';
 import { CONFIG } from './config';
 import { AnimalType, PlantType, GroundType } from './enums';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { ModelFactory } from './models';
 
 
@@ -14,7 +14,16 @@ export class Renderer3D {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
-  private controls: OrbitControls;
+  private controls: PointerLockControls;
+
+  // FPS Movement
+  private moveForward = false;
+  private moveBackward = false;
+  private moveLeft = false;
+  private moveRight = false;
+  private canJump = false;
+  private velocity = new THREE.Vector3();
+  private direction = new THREE.Vector3();
 
   // Meshes (Definite assignment assertions !)
   private groundMesh!: THREE.Mesh;
@@ -49,7 +58,7 @@ export class Renderer3D {
 
   // Interaction
   private raycaster = new THREE.Raycaster();
-  private mouse = new THREE.Vector2();
+  private mouse = new THREE.Vector2(); // Stays 0,0 for center screen raycast in FPS
   private activeWeapon: 'rifle' | 'minigun' | 'launcher' | 'nuke' = 'rifle';
   private weaponGroups: { [key: string]: THREE.Group } = {};
   private muzzleRef!: THREE.Object3D; // Generic muzzle ref
@@ -82,7 +91,7 @@ export class Renderer3D {
 
     // Camera
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.set(0, 30, 30); // Closer view for small map
+    this.camera.position.set(0, 50, 0); // Start high to avoid underground spawn
     this.camera.lookAt(0, 0, 0);
 
     // Renderer - Performance Optimized
@@ -111,13 +120,32 @@ export class Renderer3D {
     dirLight.shadow.mapSize.height = 1024;
     this.scene.add(dirLight);
 
-    // Controls
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
-    this.controls.maxPolarAngle = Math.PI / 2 - 0.1;
-    this.controls.minDistance = 5; // Allow close zoom
-    this.controls.maxDistance = 100;
+    // Controls (FPS)
+    this.controls = new PointerLockControls(this.camera, this.renderer.domElement);
+
+    // Click to capture / Shoot
+    document.body.addEventListener('mousedown', () => {
+      if (!this.controls.isLocked) {
+        this.controls.lock();
+      } else {
+        this.shoot();
+      }
+    });
+
+    this.controls.addEventListener('lock', () => {
+      const info = document.getElementById('info');
+      if (info) info.innerText = 'Bio Sim 3D | FPS Mode | WASD to Move, Click to Shoot';
+      const reticle = document.getElementById('reticle');
+      if (reticle) reticle.classList.remove('hidden');
+    });
+
+    this.controls.addEventListener('unlock', () => {
+      const info = document.getElementById('info');
+      if (info) info.innerText = 'Paused | Click to Resume';
+      const reticle = document.getElementById('reticle');
+      if (reticle) reticle.classList.add('hidden');
+    });
+
 
     // Init Content
     this.initGround();
@@ -129,11 +157,13 @@ export class Renderer3D {
     this.initWeapons();
 
     window.addEventListener('resize', () => this.onResize());
-    window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+    // MouseMove not needed for look (internal), but maybe for ref?
+    // window.addEventListener('mousemove', (e) => this.onMouseMove(e));
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
 
-    // Mobile touch controls
+    // Mobile touch controls (might need virtual joystick for FPS, disabling for now or leaving as is?)
+    // Leaving touch/mobile code alone for now, but it won't work well with PointerLock.
     window.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
     window.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
     window.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
@@ -143,94 +173,21 @@ export class Renderer3D {
   }
 
   // Touch control state
-  private touchStartPos: { x: number; y: number } | null = null;
-  private touchStartTime = 0;
-  private isTouchDragging = false;
-  private isTouchHolding = false; // For minigun auto-fire on touch hold
-  private lastTouchPos: { x: number; y: number } | null = null;
-  private readonly TAP_THRESHOLD = 15; // Max pixels moved to count as tap
-  private readonly TAP_TIME_THRESHOLD = 300; // Max ms for a tap
-  private readonly HOLD_THRESHOLD = 400; // Ms to count as hold for auto-fire
+
 
   private onTouchStart(e: TouchEvent) {
-    if (e.touches.length === 1) {
-      e.preventDefault();
-      const touch = e.touches[0];
-      this.touchStartPos = { x: touch.clientX, y: touch.clientY };
-      this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
-      this.touchStartTime = Date.now();
-      this.isTouchDragging = false;
-
-      // Update mouse position for aiming
-      this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-      this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-      this.updateWeaponAim();
-    }
+    // Touch support disabled for FPS mode initially (needs virtual joystick)
+    e.preventDefault();
   }
 
   private onTouchMove(e: TouchEvent) {
-    if (e.touches.length === 1 && this.touchStartPos && this.lastTouchPos) {
-      e.preventDefault();
-      const touch = e.touches[0];
-
-      const dx = touch.clientX - this.touchStartPos.x;
-      const dy = touch.clientY - this.touchStartPos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      // If moved beyond threshold, it's a drag (pan)
-      if (distance > this.TAP_THRESHOLD) {
-        this.isTouchDragging = true;
-        this.isTouchHolding = false;
-      }
-
-      // If holding still for long enough, enable auto-fire for minigun
-      const holdDuration = Date.now() - this.touchStartTime;
-      if (!this.isTouchDragging && holdDuration > this.HOLD_THRESHOLD) {
-        this.isTouchHolding = true;
-        // Update aim position while holding
-        this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-        this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-        this.updateWeaponAim();
-      }
-
-      if (this.isTouchDragging) {
-        // Pan camera based on finger movement
-        const moveDx = touch.clientX - this.lastTouchPos.x;
-        const moveDy = touch.clientY - this.lastTouchPos.y;
-
-        const panSpeed = 0.5;
-        const forward = new THREE.Vector3();
-        this.camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-
-        // Invert movement for natural panning feel
-        this.camera.position.addScaledVector(right, moveDx * panSpeed);
-        this.camera.position.addScaledVector(forward, -moveDy * panSpeed);
-        this.controls.target.addScaledVector(right, moveDx * panSpeed);
-        this.controls.target.addScaledVector(forward, -moveDy * panSpeed);
-      }
-
-      this.lastTouchPos = { x: touch.clientX, y: touch.clientY };
-    }
+    e.preventDefault();
   }
 
   private onTouchEnd(e: TouchEvent) {
-    if (this.touchStartPos) {
-      e.preventDefault();
-      const touchDuration = Date.now() - this.touchStartTime;
-
-      // If it was a quick tap without much movement, shoot!
-      if (!this.isTouchDragging && !this.isTouchHolding && touchDuration < this.TAP_TIME_THRESHOLD) {
-        this.shoot();
-      }
-
-      this.touchStartPos = null;
-      this.lastTouchPos = null;
-      this.isTouchDragging = false;
-      this.isTouchHolding = false;
-    }
+    e.preventDefault();
+    // Simple tap to shoot fallback?
+    if (this.controls.isLocked) this.shoot();
   }
 
   private initWeapons() {
@@ -313,42 +270,74 @@ export class Renderer3D {
     this.scene.add(this.camera);
   }
 
-  private onMouseMove(e: MouseEvent) {
-    // Map mouse to -1 to 1
-    this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  private switchWeapon(type: string) {
+    if (this.activeWeapon === type) return;
 
-    // Visual Aiming update
-    // We want the rifle to point towards the cursor's intersection with the world
-    this.updateWeaponAim();
-  }
+    // Hide old
+    if (this.weaponGroups[this.activeWeapon]) this.weaponGroups[this.activeWeapon].visible = false;
 
-  private updateWeaponAim() {
-    if (!this.groundMesh) return;
-    const group = this.weaponGroups[this.activeWeapon];
-    if (!group || !group.visible) return;
+    this.activeWeapon = type as any;
 
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(this.groundMesh);
+    // Show new
+    if (this.weaponGroups[this.activeWeapon]) this.weaponGroups[this.activeWeapon].visible = true;
 
-    if (intersects.length > 0) {
-      const point = intersects[0].point;
-      group.lookAt(point);
-    }
+    // UI Update
+    const info = document.getElementById('info');
+    if (info) info.innerText = `Bio Sim 3D | Weapon: ${type.toUpperCase()}`;
   }
 
   private onKeyDown(e: KeyboardEvent) {
-    this.keysPressed[e.code] = true;
-    // Single fire for semi-auto (Space)
-    if (e.code === 'Space') {
-      if (this.activeWeapon === 'rifle' || this.activeWeapon === 'launcher' || this.activeWeapon === 'nuke') {
-        this.shoot();
-      }
+    switch (e.code) {
+      case 'ArrowUp':
+      case 'KeyW':
+        this.moveForward = true;
+        break;
+      case 'ArrowLeft':
+      case 'KeyA':
+        this.moveLeft = true;
+        break;
+      case 'ArrowDown':
+      case 'KeyS':
+        this.moveBackward = true;
+        break;
+      case 'ArrowRight':
+      case 'KeyD':
+        this.moveRight = true;
+        break;
+      case 'Space':
+        if (this.canJump) {
+          this.velocity.y += 150; // Jump force
+          this.canJump = false;
+        }
+        break;
     }
+
+    // Weapon Switching
+    if (e.code === 'Digit1') this.switchWeapon('rifle');
+    if (e.code === 'Digit2') this.switchWeapon('minigun');
+    if (e.code === 'Digit3') this.switchWeapon('launcher');
+    if (e.code === 'Digit4') this.switchWeapon('nuke');
   }
 
   private onKeyUp(e: KeyboardEvent) {
-    this.keysPressed[e.code] = false;
+    switch (e.code) {
+      case 'ArrowUp':
+      case 'KeyW':
+        this.moveForward = false;
+        break;
+      case 'ArrowLeft':
+      case 'KeyA':
+        this.moveLeft = false;
+        break;
+      case 'ArrowDown':
+      case 'KeyS':
+        this.moveBackward = false;
+        break;
+      case 'ArrowRight':
+      case 'KeyD':
+        this.moveRight = false;
+        break;
+    }
   }
 
   private shoot() {
@@ -768,6 +757,15 @@ export class Renderer3D {
 
     // Swaps procedural meshes with new models
     this.recreateAnimalMeshes();
+
+    // Hide Loading Screen
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+      loadingScreen.style.opacity = '0';
+      setTimeout(() => {
+        loadingScreen.style.display = 'none';
+      }, 500);
+    }
   }
 
   private createDeathPool(type: 'rabbit' | 'fox', scene: THREE.Group) {
@@ -1239,7 +1237,7 @@ export class Renderer3D {
       const grp = this.weaponGroups['minigun'];
       if (grp) {
         // Also check for touch hold (isTouchDragging with no movement)
-        const isFiring = this.keysPressed['Space'] || this.isTouchHolding;
+        const isFiring = this.keysPressed['Space'] || (this.keysPressed['Mouse0'] ?? false); // Mouse0 handled by click listener usually, but here checking space
         if (isFiring) {
           grp.userData.spin += 0.8; // Faster spool up
           if (grp.userData.spin > 25) grp.userData.spin = 25; // Higher max speed
@@ -1446,43 +1444,58 @@ export class Renderer3D {
     this.wolfMesh.count = wIdx;
     this.wolfMesh.instanceMatrix.needsUpdate = true;
 
-    // WASD Camera Movement
-    const moveSpeed = 1.5;
-    const forward = new THREE.Vector3();
-    this.camera.getWorldDirection(forward);
-    forward.y = 0; // Keep movement horizontal
-    forward.normalize();
-    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-
-    if (this.keysPressed['KeyW']) {
-      this.camera.position.addScaledVector(forward, moveSpeed);
-      this.controls.target.addScaledVector(forward, moveSpeed);
-    }
-    if (this.keysPressed['KeyS']) {
-      this.camera.position.addScaledVector(forward, -moveSpeed);
-      this.controls.target.addScaledVector(forward, -moveSpeed);
-    }
-    if (this.keysPressed['KeyA']) {
-      this.camera.position.addScaledVector(right, -moveSpeed);
-      this.controls.target.addScaledVector(right, -moveSpeed);
-    }
-    if (this.keysPressed['KeyD']) {
-      this.camera.position.addScaledVector(right, moveSpeed);
-      this.controls.target.addScaledVector(right, moveSpeed);
-    }
-    // Q/E for vertical movement
-    if (this.keysPressed['KeyQ']) {
-      this.camera.position.y -= moveSpeed;
-      this.controls.target.y -= moveSpeed;
-    }
-    if (this.keysPressed['KeyE']) {
-      this.camera.position.y += moveSpeed;
-      this.controls.target.y += moveSpeed;
-    }
     const delta = this.clock.getDelta();
     this.updateDeathAnimations(delta);
 
-    this.controls.update();
+    // FPS Movement Physics
+    if (this.controls.isLocked) {
+      // Damping
+      this.velocity.x -= this.velocity.x * 10.0 * delta;
+      this.velocity.z -= this.velocity.z * 10.0 * delta;
+      this.velocity.y -= 9.8 * 8.0 * delta; // Gravity (mass 8.0)
+
+      this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
+      this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
+      this.direction.normalize(); // this ensures consistent movements in all directions
+
+      if (this.moveForward || this.moveBackward) this.velocity.z -= this.direction.z * 150.0 * delta;
+      if (this.moveLeft || this.moveRight) this.velocity.x -= this.direction.x * 150.0 * delta;
+
+      // Move (PointerLockControls MoveRight/MoveForward handles local axis)
+      // Note: moveForward takes distance. Negative velocity.z is forward?
+      // ThreeJS pattern: velocity.z is usually backward.
+      // Standard Check: if moveForward, velocity.z becomes negative.
+      // moveForward(-velocity.z * delta) -> moves forward.
+
+      this.controls.moveRight(-this.velocity.x * delta);
+      this.controls.moveForward(-this.velocity.z * delta);
+
+      this.camera.position.y += (this.velocity.y * delta);
+
+      // Floor Collision (Terrain Aware)
+      const playerHeight = 2.0;
+      let groundHeight = 0;
+
+      if (this.worldRef) {
+        // World is centered at 0,0, but cells are 0..width
+        const offset = -this.worldRef.width / 2;
+        // Invert offset logic: worldPos = (index + offset). Index = worldPos - offset.
+        const wx = Math.floor(this.camera.position.x - offset);
+        const wz = Math.floor(this.camera.position.z - offset);
+
+        if (wx >= 0 && wx < this.worldRef.width && wz >= 0 && wz < this.worldRef.height) {
+          const cell = this.worldRef.cells[wz][wx];
+          if (cell) groundHeight = cell.height * 8;
+        }
+      }
+
+      if (this.camera.position.y < groundHeight + playerHeight) {
+        this.velocity.y = 0;
+        this.camera.position.y = groundHeight + playerHeight;
+        this.canJump = true;
+      }
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 

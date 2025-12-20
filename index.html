@@ -2,218 +2,219 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Bio Sim 3D - Mobile</title>
-    <style>
-        * {
-            touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>Bio Sim 3D - Mobile</title>
+  <style>
+    * {
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
 
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            cursor: crosshair;
-        }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      cursor: crosshair;
+    }
 
-        #info {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: monospace;
-            pointer-events: none;
-            font-size: 14px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 8px;
-            border-radius: 4px;
-        }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-family: monospace;
+      pointer-events: none;
+      font-size: 14px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 8px;
+      border-radius: 4px;
+    }
 
-        #scoreBoard {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #ffaa00;
-            font-family: monospace;
-            font-size: 24px;
-            font-weight: bold;
-            pointer-events: none;
-            text-shadow: 2px 2px 0px #000;
-        }
+    #scoreBoard {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ffaa00;
+      font-family: monospace;
+      font-size: 24px;
+      font-weight: bold;
+      pointer-events: none;
+      text-shadow: 2px 2px 0px #000;
+    }
 
-        #configToggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            border: 1px solid #444;
-            padding: 10px 15px;
-            border-radius: 4px;
-            font-family: monospace;
-            cursor: pointer;
-            z-index: 1001;
-        }
+    #configToggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      border: 1px solid #444;
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-family: monospace;
+      cursor: pointer;
+      z-index: 1001;
+    }
 
-        #configToggle:hover {
-            background: rgba(50, 50, 50, 0.9);
-        }
+    #configToggle:hover {
+      background: rgba(50, 50, 50, 0.9);
+    }
 
-        #controls {
-            position: absolute;
-            top: 50px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            width: 250px;
-            max-height: calc(100vh - 80px);
-            overflow-y: auto;
-            display: none;
-            z-index: 1000;
-        }
+    #controls {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      width: 250px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+      display: none;
+      z-index: 1000;
+    }
 
-        #controls.visible {
-            display: block;
-        }
+    #controls.visible {
+      display: block;
+    }
 
-        #controls h3 {
-            margin-top: 0;
-        }
+    #controls h3 {
+      margin-top: 0;
+    }
 
-        #controls input[type="range"] {
-            width: 100px;
-        }
+    #controls input[type="range"] {
+      width: 100px;
+    }
 
-        .control-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
 
-        .control-row span:last-child {
-            width: 30px;
-            text-align: right;
-        }
+    .control-row span:last-child {
+      width: 30px;
+      text-align: right;
+    }
 
-        .shoot-hint {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255, 255, 255, 0.7);
-            font-family: monospace;
-            font-size: 14px;
-            text-align: center;
-            pointer-events: none;
-        }
-    </style>
+    .shoot-hint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+      pointer-events: none;
+    }
+  </style>
 </head>
 
 <body>
-    <div id="info">Loading 3D Ecosystem...</div>
-    <div id="scoreBoard">SCORE: 0</div>
+  <div id="info">Loading 3D Ecosystem...</div>
+  <div id="scoreBoard">SCORE: 0</div>
 
-    <button id="configToggle">⚙️ Config</button>
+  <button id="configToggle">⚙️ Config</button>
 
-    <div id="controls">
-        <h3>Visual Tweaks</h3>
+  <div id="controls">
+    <h3>Visual Tweaks</h3>
 
-        <div><strong>Trees</strong></div>
-        <div class="control-row">
-            <span>Scale</span>
-            <input type="range" id="treeScale" min="0.1" max="10.0" step="0.1" value="0.8">
-            <span id="val_treeScale">0.8</span>
-        </div>
-        <div class="control-row">
-            <span>Y-Off</span>
-            <input type="range" id="treeY" min="-5.0" max="5.0" step="0.1" value="0.0">
-            <span id="val_treeY">0.0</span>
-        </div>
-        <hr style="border-color: #444; margin: 8px 0;">
-
-        <div><strong>Grass</strong></div>
-        <div class="control-row">
-            <span>Scale</span>
-            <input type="range" id="grassScale" min="0.1" max="5.0" step="0.1" value="0.6">
-            <span id="val_grassScale">0.6</span>
-        </div>
-        <div class="control-row">
-            <span>Y-Off</span>
-            <input type="range" id="grassY" min="-2.0" max="2.0" step="0.1" value="0.0">
-            <span id="val_grassY">0.0</span>
-        </div>
-        <div class="control-row">
-            <span>Density</span>
-            <input type="range" id="grassDensity" min="1" max="10" step="1" value="3">
-            <span id="val_grassDensity">3</span>
-        </div>
-        <div class="control-row">
-            <span>Coverage</span>
-            <input type="range" id="grassCoverage" min="0.0" max="1.0" step="0.05" value="0.6">
-            <span id="val_grassCoverage">0.6</span>
-        </div>
-        <hr style="border-color: #444; margin: 8px 0;">
-
-        <div><strong>Rabbits</strong></div>
-        <div class="control-row">
-            <span>Scale</span>
-            <input type="range" id="rabbitScale" min="0.1" max="3.0" step="0.1" value="0.6">
-            <span id="val_rabbitScale">0.6</span>
-        </div>
-        <div class="control-row">
-            <span>Y-Off</span>
-            <input type="range" id="rabbitY" min="-2.0" max="2.0" step="0.1" value="0.2">
-            <span id="val_rabbitY">0.2</span>
-        </div>
-        <hr style="border-color: #444; margin: 8px 0;">
-
-        <div><strong>Wolves</strong></div>
-        <div class="control-row">
-            <span>Scale</span>
-            <input type="range" id="wolfScale" min="0.1" max="5.0" step="0.1" value="0.3">
-            <span id="val_wolfScale">0.3</span>
-        </div>
-        <div class="control-row">
-            <span>Y-Off</span>
-            <input type="range" id="wolfY" min="-2.0" max="2.0" step="0.1" value="0.7">
-            <span id="val_wolfY">0.7</span>
-        </div>
-        <hr style="border-color: #444; margin: 8px 0;">
-
-        <div><strong>Spawn Rates</strong></div>
-        <div class="control-row">
-            <span>Rabbit</span>
-            <input type="range" id="rabbitSpawnRate" min="0" max="0.1" step="0.005" value="0.01">
-            <span id="val_rabbitSpawnRate">0.01</span>
-        </div>
-        <div class="control-row">
-            <span>Wolf</span>
-            <input type="range" id="wolfSpawnRate" min="0" max="0.02" step="0.001" value="0.002">
-            <span id="val_wolfSpawnRate">0.002</span>
-        </div>
+    <div><strong>Trees</strong></div>
+    <div class="control-row">
+      <span>Scale</span>
+      <input type="range" id="treeScale" min="0.1" max="10.0" step="0.1" value="0.8">
+      <span id="val_treeScale">0.8</span>
     </div>
-
-    <div class="shoot-hint">
-        👆 Tap to shoot • Drag to pan
+    <div class="control-row">
+      <span>Y-Off</span>
+      <input type="range" id="treeY" min="-5.0" max="5.0" step="0.1" value="0.0">
+      <span id="val_treeY">0.0</span>
     </div>
+    <hr style="border-color: #444; margin: 8px 0;">
 
-    <script type="module" src="/src/main.ts"></script>
+    <div><strong>Grass</strong></div>
+    <div class="control-row">
+      <span>Scale</span>
+      <input type="range" id="grassScale" min="0.1" max="5.0" step="0.1" value="0.6">
+      <span id="val_grassScale">0.6</span>
+    </div>
+    <div class="control-row">
+      <span>Y-Off</span>
+      <input type="range" id="grassY" min="-2.0" max="2.0" step="0.1" value="0.0">
+      <span id="val_grassY">0.0</span>
+    </div>
+    <div class="control-row">
+      <span>Density</span>
+      <input type="range" id="grassDensity" min="1" max="10" step="1" value="3">
+      <span id="val_grassDensity">3</span>
+    </div>
+    <div class="control-row">
+      <span>Coverage</span>
+      <input type="range" id="grassCoverage" min="0.0" max="1.0" step="0.05" value="0.6">
+      <span id="val_grassCoverage">0.6</span>
+    </div>
+    <hr style="border-color: #444; margin: 8px 0;">
 
-    <script>
-        // Toggle configurator panel
-        document.getElementById('configToggle').addEventListener('click', function () {
-            document.getElementById('controls').classList.toggle('visible');
-        });
-    </script>
+    <div><strong>Rabbits</strong></div>
+    <div class="control-row">
+      <span>Scale</span>
+      <input type="range" id="rabbitScale" min="0.1" max="3.0" step="0.1" value="0.6">
+      <span id="val_rabbitScale">0.6</span>
+    </div>
+    <div class="control-row">
+      <span>Y-Off</span>
+      <input type="range" id="rabbitY" min="-2.0" max="2.0" step="0.1" value="0.2">
+      <span id="val_rabbitY">0.2</span>
+    </div>
+    <hr style="border-color: #444; margin: 8px 0;">
+
+    <div><strong>Wolves</strong></div>
+    <div class="control-row">
+      <span>Scale</span>
+      <input type="range" id="wolfScale" min="0.1" max="5.0" step="0.1" value="0.3">
+      <span id="val_wolfScale">0.3</span>
+    </div>
+    <div class="control-row">
+      <span>Y-Off</span>
+      <input type="range" id="wolfY" min="-2.0" max="2.0" step="0.1" value="0.7">
+      <span id="val_wolfY">0.7</span>
+    </div>
+    <hr style="border-color: #444; margin: 8px 0;">
+
+    <div><strong>Spawn Rates</strong></div>
+    <div class="control-row">
+      <span>Rabbit</span>
+      <input type="range" id="rabbitSpawnRate" min="0" max="0.1" step="0.005" value="0.01">
+      <span id="val_rabbitSpawnRate">0.01</span>
+    </div>
+    <div class="control-row">
+      <span>Wolf</span>
+      <input type="range" id="wolfSpawnRate" min="0" max="0.02" step="0.001" value="0.002">
+      <span id="val_wolfSpawnRate">0.002</span>
+    </div>
+  </div>
+
+  <div class="shoot-hint">
+    👆 Tap to shoot • Drag to pan
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+
+  <script>
+    // Toggle configurator panel
+    document.getElementById('configToggle').addEventListener('click', function () {
+      document.getElementById('controls').classList.toggle('visible');
+    });
+  </script>
 </body>
 
 </html>
