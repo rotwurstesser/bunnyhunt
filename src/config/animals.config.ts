@@ -239,8 +239,8 @@ export const TREX_ENTITY_CONFIG: AnimalConfig = {
   maxHealth: 150,
   speed: 1.5, // Very slow
   baseScale: 0.025,
-  colliderRadius: 6.0,
-  colliderYOffset: 0.8,
+  colliderRadius: 8.0,
+  colliderYOffset: 1.5,
   healthBarYOffset: 4.0,
   healthBarScale: 3.0,
 };

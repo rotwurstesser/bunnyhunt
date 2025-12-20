@@ -139,8 +139,8 @@ export default class MiniMap extends Component {
         this.drawEntities(this.filterAlive(this.getEntitiesWithComponent('ApatosaurusController'), 'ApatosaurusController'), 'cyan', playerRot, playerPos, 5);
 
         // Draw pickups (weapon pickups = yellow, ammo pickups = green)
-        this.drawEntities(this.getActivePickups('WeaponPickup'), 'yellow', playerRot, playerPos, 4, true);
-        this.drawEntities(this.getActivePickups('AmmoPickup'), '#00ff00', playerRot, playerPos, 3, true);
+        this.drawEntities(this.getEntitiesWithComponent('WeaponPickup'), 'yellow', playerRot, playerPos, 4, true);
+        this.drawEntities(this.getEntitiesWithComponent('AmmoPickup'), '#00ff00', playerRot, playerPos, 3, true);
     }
 
     private drawEntities(entities: IEntity[], color: string, playerRot: THREE.Quaternion, playerPos: THREE.Vector3, dotSize: number = 3, isPickup: boolean = false) {
