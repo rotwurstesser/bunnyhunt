@@ -240,7 +240,8 @@ export abstract class AnimalController<TState extends string> extends Component 
   }
 
   /**
-   * Setup materials - clone materials and enable shadows.
+   * Setup materials - deep clone materials and enable shadows.
+   * IMPORTANT: SkeletonUtils.clone shares materials, so we must clone them here.
    */
   protected setupMaterials(): void {
     this.model.traverse((child) => {
@@ -249,12 +250,24 @@ export abstract class AnimalController<TState extends string> extends Component 
         mesh.castShadow = true;
         mesh.receiveShadow = true;
 
-        // Clone material to prevent shared state issues (e.g., red flash affecting all instances)
+        // Deep clone material to prevent shared state issues (e.g., red flash affecting all instances)
         if (mesh.material) {
           if (Array.isArray(mesh.material)) {
-            mesh.material = mesh.material.map((m) => m.clone());
+            mesh.material = mesh.material.map((m) => {
+              const cloned = m.clone();
+              // Also clone any textures/maps to ensure full isolation
+              if ((cloned as THREE.MeshStandardMaterial).map) {
+                (cloned as THREE.MeshStandardMaterial).map = (cloned as THREE.MeshStandardMaterial).map!.clone();
+              }
+              return cloned;
+            });
           } else {
-            mesh.material = mesh.material.clone();
+            const cloned = mesh.material.clone();
+            // Also clone any textures/maps to ensure full isolation
+            if ((cloned as THREE.MeshStandardMaterial).map) {
+              (cloned as THREE.MeshStandardMaterial).map = (cloned as THREE.MeshStandardMaterial).map!.clone();
+            }
+            mesh.material = cloned;
           }
         }
       }

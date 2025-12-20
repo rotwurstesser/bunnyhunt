@@ -11,6 +11,9 @@ import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils';
 import { Ammo } from '../../core/AmmoLib';
 import type { EntityManager } from '../../core/EntityManager';
 
+// Grass texture
+import grassTexture from '../../assets/grass.png';
+
 interface TileData {
   x: number;
   z: number;
@@ -56,6 +59,9 @@ export default class TileManager extends Component {
   private assets: Assets;
   private entityManager: EntityManager;
 
+  // Grass material (shared across tiles)
+  private grassMaterial: THREE.MeshStandardMaterial | null = null;
+
   // Tile settings
   private tileSize = 40;
   private triggerDistance = 18;
@@ -87,6 +93,20 @@ export default class TileManager extends Component {
 
   Initialize(): void {
     this.player = this.FindEntity('Player');
+
+    // Load grass texture and create shared material
+    const textureLoader = new THREE.TextureLoader();
+    const texture = textureLoader.load(grassTexture);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(8, 8); // Tile 8x8 times per ground tile
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    this.grassMaterial = new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.9,
+      metalness: 0.0,
+    });
 
     // Create initial tile at origin
     this.CreateTile(0, 0);
@@ -122,10 +142,19 @@ export default class TileManager extends Component {
     const centerX = tileX * this.tileSize;
     const centerZ = tileZ * this.tileSize;
 
-    // Create ground plane for this tile (visual)
-    const groundGeo = new THREE.PlaneGeometry(this.tileSize, this.tileSize);
-    const groundMat = new THREE.MeshLambertMaterial({ color: 0x7cba5c });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
+    // Create ground plane for this tile (visual) with vertex displacement
+    const segments = 16; // More segments for displacement
+    const groundGeo = new THREE.PlaneGeometry(this.tileSize, this.tileSize, segments, segments);
+
+    // Add subtle vertex displacement for natural bumpy terrain
+    const positions = groundGeo.attributes.position.array as Float32Array;
+    for (let i = 0; i < positions.length; i += 3) {
+      // Add small random height variation (Y is Z after rotation)
+      positions[i + 2] += (Math.random() - 0.5) * 0.3;
+    }
+    groundGeo.computeVertexNormals();
+
+    const ground = new THREE.Mesh(groundGeo, this.grassMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(centerX, 0, centerZ);
     ground.receiveShadow = true;
