@@ -143,8 +143,11 @@ export default class TileManager extends Component {
     const centerZ = tileZ * this.tileSize;
 
     // Create ground plane for this tile (visual) with vertex displacement
+    // Make tiles slightly larger to overlap and hide seams
+    const overlap = 0.5;
+    const visualSize = this.tileSize + overlap * 2;
     const segments = 16; // More segments for displacement
-    const groundGeo = new THREE.PlaneGeometry(this.tileSize, this.tileSize, segments, segments);
+    const groundGeo = new THREE.PlaneGeometry(visualSize, visualSize, segments, segments);
 
     // Add subtle vertex displacement for natural bumpy terrain
     const positions = groundGeo.attributes.position.array as Float32Array;
