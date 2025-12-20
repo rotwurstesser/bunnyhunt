@@ -55,9 +55,9 @@ export const RABBIT_ENTITY_CONFIG: AnimalConfig = {
   health: 10,
   maxHealth: 10,
   speed: 8.0,
-  baseScale: 0.5,
-  colliderRadius: 1.5,
-  colliderYOffset: 0.3,
+  baseScale: 0.35,
+  colliderRadius: 1.0,
+  colliderYOffset: 0.2,
 };
 
 /**
@@ -122,9 +122,9 @@ export const FOX_ENTITY_CONFIG: AnimalConfig = {
   health: 30,
   maxHealth: 30,
   speed: 6.0,
-  baseScale: 0.5,
-  colliderRadius: 1.0,
-  colliderYOffset: 0.4,
+  baseScale: 0.35,
+  colliderRadius: 0.8,
+  colliderYOffset: 0.2,
 };
 
 /**
@@ -237,10 +237,10 @@ export const TREX_ENTITY_CONFIG: AnimalConfig = {
   animalType: 'trex',
   health: 150,
   maxHealth: 150,
-  speed: 3.0, // Slow
+  speed: 3.0,
   baseScale: 0.025,
-  colliderRadius: 4.0, // Large sphere to cover horizontal body
-  colliderYOffset: 1.0, // Lower to center on body mass
+  colliderRadius: 6.0,
+  colliderYOffset: 0.8,
   healthBarYOffset: 4.0,
   healthBarScale: 3.0,
 };
@@ -299,12 +299,12 @@ export const APATOSAURUS_ANIMATION_CONFIG: EntityAnimationConfig<'apatosaurus'> 
 export const APATOSAURUS_ENTITY_CONFIG: AnimalConfig = {
   name: 'ApatosaurusController',
   animalType: 'apatosaurus',
-  health: 300,
-  maxHealth: 300,
+  health: 150,
+  maxHealth: 150,
   speed: 4.0,
   baseScale: 0.02,
-  colliderRadius: 5.0, // Extra large for long horizontal body
-  colliderYOffset: 1.5, // Lower to center on body mass
+  colliderRadius: 8.0,
+  colliderYOffset: 1.0,
   healthBarYOffset: 6.0,
   healthBarScale: 4.0,
 };
