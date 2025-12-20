@@ -1,14 +1,14 @@
 /**
  * entry.js
- * 
- * This is the first file loaded. It sets up the Renderer, 
- * Scene, Physics and Entities. It also starts the render loop and 
+ *
+ * This is the first file loaded. It sets up the Renderer,
+ * Scene, Physics and Entities. It also starts the render loop and
  * handles window resizes.
- * 
+ *
  */
 
 import * as THREE from 'three'
-import {AmmoHelper, Ammo, createConvexHullShape} from './AmmoLib'
+import { AmmoHelper, Ammo, createConvexHullShape } from './AmmoLib'
 import EntityManager from './EntityManager'
 import Entity from './Entity'
 import ForestLighting from './entities/Level/ForestLighting'
@@ -17,10 +17,10 @@ import TileManager from './entities/Level/TileManager'
 import PlayerControls from './entities/Player/PlayerControls'
 import PlayerPhysics from './entities/Player/PlayerPhysics'
 import Stats from 'three/examples/jsm/libs/stats.module'
-import {  FBXLoader } from 'three/examples/jsm/loaders/FBXLoader'
-import {  GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import {  OBJLoader } from 'three/examples/jsm/loaders/OBJLoader'
-import {  SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader'
+import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils'
 import NpcCharacterController from './entities/NPC/CharacterController'
 import Input from './Input'
 
@@ -70,38 +70,38 @@ import PlayerHealth from './entities/Player/PlayerHealth'
 import GameManager from './entities/Game/GameManager'
 import SpawnManager from './entities/Spawn/SpawnManager'
 
-class FPSGameApp{
+class FPSGameApp {
 
-  constructor(){
+  constructor() {
     this.lastFrameTime = null;
     this.assets = {};
     this.animFrameId = 0;
 
-    AmmoHelper.Init(()=>{this.Init();});
+    AmmoHelper.Init(() => { this.Init(); }, 1);
   }
 
-  Init(){
+  Init() {
     this.LoadAssets();
     this.SetupGraphics();
     this.SetupStartButton();
   }
 
-  SetupGraphics(){
+  SetupGraphics() {
     this.scene = new THREE.Scene();
-    this.renderer = new THREE.WebGLRenderer({antialias: true});
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.renderer.toneMapping = THREE.ReinhardToneMapping;
-		this.renderer.toneMappingExposure = 1;
-		this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.toneMappingExposure = 1;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
 
     this.camera = new THREE.PerspectiveCamera();
     this.camera.near = 0.01;
 
     // create an AudioListener and add it to the camera
     this.listener = new THREE.AudioListener();
-    this.camera.add( this.listener );
+    this.camera.add(this.listener);
 
     // renderer
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -109,7 +109,7 @@ class FPSGameApp{
     this.WindowResizeHanlder();
     window.addEventListener('resize', this.WindowResizeHanlder);
 
-    document.body.appendChild( this.renderer.domElement );
+    document.body.appendChild(this.renderer.domElement);
 
     // Stats.js
     this.stats = new Stats();
@@ -119,11 +119,11 @@ class FPSGameApp{
   SetupPhysics() {
     // Physics configuration
     const collisionConfiguration = new Ammo.btDefaultCollisionConfiguration();
-    const dispatcher = new Ammo.btCollisionDispatcher( collisionConfiguration );
+    const dispatcher = new Ammo.btCollisionDispatcher(collisionConfiguration);
     const broadphase = new Ammo.btDbvtBroadphase();
     const solver = new Ammo.btSequentialImpulseConstraintSolver();
-    this.physicsWorld = new Ammo.btDiscreteDynamicsWorld( dispatcher, broadphase, solver, collisionConfiguration );
-    this.physicsWorld.setGravity( new Ammo.btVector3( 0.0, -9.81, 0.0 ) );
+    this.physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+    this.physicsWorld.setGravity(new Ammo.btVector3(0.0, -9.81, 0.0));
     // Note: Ammo.addFunction and getOverlappingPairCache not available in ammo.js 0.0.10
     // Ghost pair callback disabled - using raycast collision detection instead
 
@@ -132,47 +132,47 @@ class FPSGameApp{
     //this.debugDrawer.enable();
   }
 
-  SetAnim(name, obj){
+  SetAnim(name, obj) {
     const clip = obj.animations[0];
     this.mutantAnims[name] = clip;
   }
 
-  PromiseProgress(proms, progress_cb){
+  PromiseProgress(proms, progress_cb) {
     let d = 0;
     progress_cb(0);
     for (const p of proms) {
-      p.then(()=> {    
+      p.then(() => {
         d++;
-        progress_cb( (d / proms.length) * 100 );
+        progress_cb((d / proms.length) * 100);
       });
     }
     return Promise.all(proms);
   }
 
-  AddAsset(asset, loader, name){
-    return loader.loadAsync(asset).then( result =>{
+  AddAsset(asset, loader, name) {
+    return loader.loadAsync(asset).then(result => {
       this.assets[name] = result;
     });
   }
 
-  OnProgress(p){
+  OnProgress(p) {
     const progressbar = document.getElementById('progress');
     progressbar.style.width = `${p}%`;
   }
 
-  HideProgress(){
+  HideProgress() {
     this.OnProgress(0);
   }
 
-  SetupStartButton(){
+  SetupStartButton() {
     document.getElementById('start_game').addEventListener('click', this.StartGame);
   }
 
-  ShowMenu(visible=true){
-    document.getElementById('menu').style.visibility = visible?'visible':'hidden';
+  ShowMenu(visible = true) {
+    document.getElementById('menu').style.visibility = visible ? 'visible' : 'hidden';
   }
 
-  async LoadAssets(){
+  async LoadAssets() {
     const gltfLoader = new GLTFLoader();
     const fbxLoader = new FBXLoader();
     const objLoader = new OBJLoader();
@@ -231,13 +231,13 @@ class FPSGameApp{
     this.SetAnim('die', this.assets['dieAnim']);
 
     this.assets['ak47'].scene.animations = this.assets['ak47'].animations;
-    
+
     //Set ammo box textures and other props
     this.assets['ammobox'].scale.set(0.01, 0.01, 0.01);
-    this.assets['ammobox'].traverse(child =>{
+    this.assets['ammobox'].traverse(child => {
       child.castShadow = true;
       child.receiveShadow = true;
-      
+
       child.material = new THREE.MeshStandardMaterial({
         map: this.assets['ammoboxTexD'],
         aoMap: this.assets['ammoboxTexAO'],
@@ -247,7 +247,7 @@ class FPSGameApp{
         roughnessMap: this.assets['ammoboxTexR'],
         color: new THREE.Color(0.4, 0.4, 0.4)
       });
-      
+
     });
 
     this.assets['ammoboxShape'] = createConvexHullShape(this.assets['ammobox']);
@@ -256,7 +256,7 @@ class FPSGameApp{
     this.ShowMenu();
   }
 
-  EntitySetup(){
+  EntitySetup() {
     this.entityManager = new EntityManager();
 
     // Level entity with lighting, navmesh, and tile manager
@@ -274,10 +274,10 @@ class FPSGameApp{
     playerEntity.AddComponent(new PlayerControls(this.camera, this.scene));
     // Pass all weapon assets to Weapon component
     const weaponAssets = {
-        pistol: this.assets['pistol'],
-        smg: this.assets['smg'],
-        assaultRifle: this.assets['assaultRifle'],
-        smg2: this.assets['smg2']
+      pistol: this.assets['pistol'],
+      smg: this.assets['smg'],
+      assaultRifle: this.assets['assaultRifle'],
+      smg2: this.assets['smg2']
     };
     playerEntity.AddComponent(new Weapon(this.camera, weaponAssets, this.assets['muzzleFlash'], this.physicsWorld, this.assets['ak47Shot'], this.listener));
     playerEntity.AddComponent(new PlayerHealth());
@@ -317,9 +317,9 @@ class FPSGameApp{
     this.entityManager.Add(spawnManagerEntity);
 
     const ammoLocations = [
-       [15, 0.0, 15],
-       [-15, 0.0, -15],
-       [20, 0.0, -10],
+      [15, 0.0, 15],
+      [-15, 0.0, -15],
+      [20, 0.0, -10],
     ];
 
     ammoLocations.forEach((loc, i) => {
@@ -336,7 +336,7 @@ class FPSGameApp{
     this.animFrameId = window.requestAnimationFrame(this.OnAnimationFrameHandler);
   }
 
-  StartGame = ()=>{
+  StartGame = () => {
     window.cancelAnimationFrame(this.animFrameId);
     Input.ClearEventListners();
 
@@ -348,7 +348,7 @@ class FPSGameApp{
   }
 
   // resize
-  WindowResizeHanlder = () => { 
+  WindowResizeHanlder = () => {
     const { innerHeight, innerWidth } = window;
     this.renderer.setSize(innerWidth, innerHeight);
     this.camera.aspect = innerWidth / innerHeight;
@@ -357,11 +357,11 @@ class FPSGameApp{
 
   // render loop
   OnAnimationFrameHandler = (t) => {
-    if(this.lastFrameTime===null){
+    if (this.lastFrameTime === null) {
       this.lastFrameTime = t;
     }
 
-    const delta = t-this.lastFrameTime;
+    const delta = t - this.lastFrameTime;
     let timeElapsed = Math.min(1.0 / 30.0, delta * 0.001);
     this.Step(timeElapsed);
     this.lastFrameTime = t;
@@ -369,12 +369,12 @@ class FPSGameApp{
     this.animFrameId = window.requestAnimationFrame(this.OnAnimationFrameHandler);
   }
 
-  PhysicsUpdate = (world, timeStep)=>{
+  PhysicsUpdate = (world, timeStep) => {
     this.entityManager.PhysicsUpdate(world, timeStep);
   }
 
-  Step(elapsedTime){
-    this.physicsWorld.stepSimulation( elapsedTime, 10 );
+  Step(elapsedTime) {
+    this.physicsWorld.stepSimulation(elapsedTime, 10);
     //this.debugDrawer.update();
 
     this.entityManager.Update(elapsedTime);
