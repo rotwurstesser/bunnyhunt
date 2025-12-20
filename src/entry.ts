@@ -47,6 +47,12 @@ import ak47 from './assets/guns/ak47/ak47.glb';
 import minigun from './assets/minigun.glb';
 import shotgun from './assets/shotgun.glb';
 import grenadeLauncher from './assets/grenade_launcher.glb';
+
+// Environment models
+import tree1 from './assets/tree1.glb';
+import tree2 from './assets/tree2.glb';
+import grassBush from './assets/grass_bush.glb';
+import rock from './assets/rock.glb';
 // Shot sound
 import ak47Shot from './assets/sounds/ak47_shot.wav';
 
@@ -111,6 +117,11 @@ interface Assets {
   decalAlpha?: THREE.Texture;
   skyTex?: THREE.Texture;
   ammoboxShape?: Ammo.btConvexHullShape;
+  // Environment models
+  tree1?: THREE.Object3D;
+  tree2?: THREE.Object3D;
+  grassBush?: THREE.Object3D;
+  rock?: THREE.Object3D;
   [key: string]: any;
 }
 
@@ -282,6 +293,11 @@ class FPSGameApp {
     promises.push(this.AddAsset(shotgun, gltfLoader, 'shotgun'));
     promises.push(this.AddAsset(grenadeLauncher, gltfLoader, 'grenadeLauncher'));
     promises.push(this.AddAsset(muzzleFlash, gltfLoader, 'muzzleFlash'));
+    // Environment models
+    promises.push(this.AddAsset(tree1, gltfLoader, 'tree1'));
+    promises.push(this.AddAsset(tree2, gltfLoader, 'tree2'));
+    promises.push(this.AddAsset(grassBush, gltfLoader, 'grassBush'));
+    promises.push(this.AddAsset(rock, gltfLoader, 'rock'));
     promises.push(this.AddAsset(ak47Shot, audioLoader, 'ak47Shot'));
     // Ammo box
     promises.push(this.AddAsset(ammobox, fbxLoader, 'ammobox'));
@@ -309,6 +325,12 @@ class FPSGameApp {
     this.assets['minigun'] = this.assets['minigun'].scene;
     this.assets['shotgun'] = this.assets['shotgun'].scene;
     this.assets['grenadeLauncher'] = this.assets['grenadeLauncher'].scene;
+
+    // Extract environment model scenes
+    this.assets['tree1'] = this.assets['tree1'].scene;
+    this.assets['tree2'] = this.assets['tree2'].scene;
+    this.assets['grassBush'] = this.assets['grassBush'].scene;
+    this.assets['rock'] = this.assets['rock'].scene;
 
     // Extract mutant anims
     this.SetAnim('idle', this.assets['idleAnim']);

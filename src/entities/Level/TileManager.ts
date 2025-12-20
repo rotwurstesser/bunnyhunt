@@ -48,6 +48,11 @@ interface Assets {
   smg?: THREE.Object3D;
   assaultRifle?: THREE.Object3D;
   smg2?: THREE.Object3D;
+  // Environment models
+  tree1?: THREE.Object3D;
+  tree2?: THREE.Object3D;
+  grassBush?: THREE.Object3D;
+  rock?: THREE.Object3D;
   [key: string]: any;
 }
 
@@ -100,7 +105,8 @@ export default class TileManager extends Component {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(8, 8); // Tile 8x8 times per ground tile
-    texture.colorSpace = THREE.SRGBColorSpace;
+    // Use encoding for older Three.js versions (v0.127.0)
+    (texture as any).encoding = (THREE as any).sRGBEncoding;
 
     this.grassMaterial = new THREE.MeshStandardMaterial({
       map: texture,
@@ -191,6 +197,24 @@ export default class TileManager extends Component {
       }
     }
 
+    // Add grass bushes (sparse - 3-6 per tile, here and there)
+    const bushCount = 3 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < bushCount; i++) {
+      const bush = this.CreateGrassBush(centerX, centerZ);
+      if (bush) {
+        tile.objects.push(bush);
+      }
+    }
+
+    // Add rocks (1-3 per tile)
+    const rockCount = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < rockCount; i++) {
+      const rock = this.CreateRock(centerX, centerZ);
+      if (rock) {
+        tile.objects.push(rock);
+      }
+    }
+
     // Add rabbits (3)
     const rabbitCount = this.preparedTile?.rabbitCount || 3;
     for (let i = 0; i < rabbitCount; i++) {
@@ -267,57 +291,163 @@ export default class TileManager extends Component {
     return tile;
   }
 
-  CreateTree(centerX: number, centerZ: number): TreeObject | null {
+  CreateTree(centerX: number, centerZ: number): { cleanup: () => void } | null {
     // Random position within tile (with margin)
     const margin = 5;
     const halfSize = this.tileSize / 2 - margin;
     const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
     const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
 
-    // Simple cone tree
-    const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, 2, 8);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.position.set(x, 1, z);
-    trunk.castShadow = true;
-    this.scene.add(trunk);
+    // Use tree1 or tree2 model randomly
+    const treeModel = Math.random() < 0.5 ? this.assets.tree1 : this.assets.tree2;
 
-    const leavesGeo = new THREE.ConeGeometry(2, 5, 8);
-    const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
-    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
-    leaves.position.set(x, 4.5, z);
-    leaves.castShadow = true;
-    this.scene.add(leaves);
+    if (!treeModel) {
+      // Fallback to simple cone tree if models not loaded
+      const trunkGeo = new THREE.CylinderGeometry(0.3, 0.4, 2, 8);
+      const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.set(x, 1, z);
+      trunk.castShadow = true;
+      this.scene.add(trunk);
 
-    // Add physics collider for trunk (cylinder)
-    const treeShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.4, 1, 0.4));
+      const leavesGeo = new THREE.ConeGeometry(2, 5, 8);
+      const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
+      const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+      leaves.position.set(x, 4.5, z);
+      leaves.castShadow = true;
+      this.scene.add(leaves);
+
+      // Physics collider
+      const treeShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.4, 1, 0.4));
+      const treeTransform = new Ammo.btTransform();
+      treeTransform.setIdentity();
+      treeTransform.setOrigin(new Ammo.btVector3(x, 1, z));
+      const treeMotionState = new Ammo.btDefaultMotionState(treeTransform);
+      const treeInfo = new Ammo.btRigidBodyConstructionInfo(0, treeMotionState, treeShape, new Ammo.btVector3(0, 0, 0));
+      const treeBody = new Ammo.btRigidBody(treeInfo);
+      (treeBody as any).isTree = true;
+      this.physicsWorld.addRigidBody(treeBody);
+
+      return {
+        cleanup: () => {
+          this.scene.remove(trunk);
+          this.scene.remove(leaves);
+          try { this.physicsWorld.removeRigidBody(treeBody); } catch (e) { /* ignore */ }
+        },
+      };
+    }
+
+    // Clone the tree model
+    const treeClone = treeModel.clone();
+
+    // Random scale variation (0.8 to 1.5)
+    const scale = 0.8 + Math.random() * 0.7;
+    treeClone.scale.set(scale, scale, scale);
+
+    // Random rotation
+    treeClone.rotation.y = Math.random() * Math.PI * 2;
+
+    treeClone.position.set(x, 0, z);
+    treeClone.traverse((child) => {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    });
+    this.scene.add(treeClone);
+
+    // Physics collider (cylinder for trunk)
+    const colliderRadius = 0.5 * scale;
+    const colliderHeight = 2 * scale;
+    const treeShape = new Ammo.btCylinderShape(new Ammo.btVector3(colliderRadius, colliderHeight, colliderRadius));
     const treeTransform = new Ammo.btTransform();
     treeTransform.setIdentity();
-    treeTransform.setOrigin(new Ammo.btVector3(x, 1, z));
+    treeTransform.setOrigin(new Ammo.btVector3(x, colliderHeight, z));
     const treeMotionState = new Ammo.btDefaultMotionState(treeTransform);
-    const treeInfo = new Ammo.btRigidBodyConstructionInfo(
-      0,
-      treeMotionState,
-      treeShape,
-      new Ammo.btVector3(0, 0, 0)
-    );
+    const treeInfo = new Ammo.btRigidBodyConstructionInfo(0, treeMotionState, treeShape, new Ammo.btVector3(0, 0, 0));
     const treeBody = new Ammo.btRigidBody(treeInfo);
-    (treeBody as any).isTree = true; // Mark as tree for impact effects
+    (treeBody as any).isTree = true;
     this.physicsWorld.addRigidBody(treeBody);
 
-    // Return group-like object for cleanup
     return {
-      trunk,
-      leaves,
-      physicsBody: treeBody,
       cleanup: () => {
-        this.scene.remove(trunk);
-        this.scene.remove(leaves);
-        try {
-          this.physicsWorld.removeRigidBody(treeBody);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        this.scene.remove(treeClone);
+        try { this.physicsWorld.removeRigidBody(treeBody); } catch (e) { /* ignore */ }
+      },
+    };
+  }
+
+  CreateGrassBush(centerX: number, centerZ: number): { cleanup: () => void } | null {
+    const bushModel = this.assets.grassBush;
+    if (!bushModel) return null;
+
+    const margin = 3;
+    const halfSize = this.tileSize / 2 - margin;
+    const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
+    const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
+
+    const bushClone = bushModel.clone();
+
+    // Small random scale (0.3 to 0.6)
+    const scale = 0.3 + Math.random() * 0.3;
+    bushClone.scale.set(scale, scale, scale);
+
+    // Random rotation
+    bushClone.rotation.y = Math.random() * Math.PI * 2;
+
+    bushClone.position.set(x, 0, z);
+    bushClone.traverse((child) => {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    });
+    this.scene.add(bushClone);
+
+    return {
+      cleanup: () => {
+        this.scene.remove(bushClone);
+      },
+    };
+  }
+
+  CreateRock(centerX: number, centerZ: number): { cleanup: () => void } | null {
+    const rockModel = this.assets.rock;
+    if (!rockModel) return null;
+
+    const margin = 4;
+    const halfSize = this.tileSize / 2 - margin;
+    const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
+    const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
+
+    const rockClone = rockModel.clone();
+
+    // Random scale (0.5 to 1.5)
+    const scale = 0.5 + Math.random() * 1.0;
+    rockClone.scale.set(scale, scale, scale);
+
+    // Random rotation
+    rockClone.rotation.y = Math.random() * Math.PI * 2;
+
+    rockClone.position.set(x, 0, z);
+    rockClone.traverse((child) => {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    });
+    this.scene.add(rockClone);
+
+    // Physics collider (box for rock)
+    const colliderSize = 0.5 * scale;
+    const rockShape = new Ammo.btBoxShape(new Ammo.btVector3(colliderSize, colliderSize * 0.5, colliderSize));
+    const rockTransform = new Ammo.btTransform();
+    rockTransform.setIdentity();
+    rockTransform.setOrigin(new Ammo.btVector3(x, colliderSize * 0.5, z));
+    const rockMotionState = new Ammo.btDefaultMotionState(rockTransform);
+    const rockInfo = new Ammo.btRigidBodyConstructionInfo(0, rockMotionState, rockShape, new Ammo.btVector3(0, 0, 0));
+    const rockBody = new Ammo.btRigidBody(rockInfo);
+    (rockBody as any).isRock = true;
+    this.physicsWorld.addRigidBody(rockBody);
+
+    return {
+      cleanup: () => {
+        this.scene.remove(rockClone);
+        try { this.physicsWorld.removeRigidBody(rockBody); } catch (e) { /* ignore */ }
       },
     };
   }
