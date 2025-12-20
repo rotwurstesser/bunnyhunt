@@ -1,0 +1,356 @@
+import * as THREE from 'three'
+import Component from '../../Component'
+import Input from '../../Input'
+import {Ammo, AmmoHelper, CollisionFilterGroups} from '../../AmmoLib'
+
+import WeaponFSM from './WeaponFSM';
+import { getWeaponConfig, WEAPON_TIERS, WEAPON_THRESHOLDS } from './WeaponConfig';
+
+
+export default class Weapon extends Component{
+    constructor(camera, model, flash, world, shotSoundBuffer, listener, nukeProjectileFactory = null){
+        super();
+        this.name = 'Weapon';
+        this.camera = camera;
+        this.world = world;
+        this.model = model;
+        this.flash = flash;
+        this.animations = {};
+        this.shoot = false;
+        this.shootTimer = 0.0;
+
+        this.shotSoundBuffer = shotSoundBuffer;
+        this.audioListener = listener;
+        this.nukeProjectileFactory = nukeProjectileFactory;
+
+        // Current weapon config
+        this.currentWeaponKey = 'rifle';
+        this.currentTier = 0;
+
+        // Initialize with rifle config
+        this.ApplyWeaponConfig('rifle');
+
+        this.uimanager = null;
+        this.reloading = false;
+        this.hitResult = {intersectionPoint: new THREE.Vector3(), intersectionNormal: new THREE.Vector3()};
+        this.inputSetup = false;
+    }
+
+    ApplyWeaponConfig(weaponKey) {
+        const config = getWeaponConfig(weaponKey);
+        this.currentWeaponKey = weaponKey;
+        this.fireRate = config.fireRate;
+        this.damage = config.damage;
+        this.magAmmo = config.magAmmo;
+        this.ammoPerMag = config.ammoPerMag;
+        this.ammo = config.maxAmmo;
+        this.weaponType = config.type;
+        this.modelScale = config.modelScale;
+        this.muzzleFlashScale = config.muzzleFlashScale || 1.0;
+        this.recoil = config.recoil || 0.01;
+        this.weaponName = config.name;
+    }
+
+    SetAnim(name, clip){
+        if (!clip) {
+            console.warn(`Weapon animation '${name}' not found`);
+            return;
+        }
+        const action = this.mixer.clipAction(clip);
+        this.animations[name] = {clip, action};
+    }
+
+    SetAnimations(){
+        this.mixer = new THREE.AnimationMixer( this.model );
+        const anims = this.model.animations || [];
+        this.SetAnim('idle', anims[1]);
+        this.SetAnim('reload', anims[2]);
+        this.SetAnim('shoot', anims[0]);
+    }
+
+    SetMuzzleFlash(){
+        this.flash.position.set(-0.3, -0.5, 8.3);
+        this.flash.rotateY(Math.PI);
+        this.model.add(this.flash);
+        this.flash.life = 0.0;
+
+        if (this.flash.children[0]?.material) {
+            this.flash.children[0].material.blending = THREE.AdditiveBlending;
+        }
+    }
+
+    SetSoundEffect(){
+        this.shotSound = new THREE.Audio(this.audioListener);
+        this.shotSound.setBuffer(this.shotSoundBuffer);
+        this.shotSound.setLoop(false);
+    }
+
+    AmmoPickup = (e) => {
+        // Add ammo based on current weapon
+        const config = getWeaponConfig(this.currentWeaponKey);
+        this.ammo = Math.min(this.ammo + 30, config.maxAmmo);
+        this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+    }
+
+    OnWeaponUpgrade = (msg) => {
+        const newTier = msg.tier;
+        if (newTier > this.currentTier && newTier < WEAPON_TIERS.length) {
+            this.currentTier = newTier;
+            const newWeaponKey = WEAPON_TIERS[newTier];
+            this.SwitchWeapon(newWeaponKey);
+        }
+    }
+
+    SwitchWeapon(weaponKey) {
+        // Stop any current action
+        this.shoot = false;
+        this.reloading = false;
+
+        // Apply new weapon config
+        this.ApplyWeaponConfig(weaponKey);
+
+        // Update model scale if needed
+        const scale = this.modelScale;
+        this.model.scale.set(scale, scale, scale);
+
+        // Reset state machine to idle
+        if (this.stateMachine) {
+            this.stateMachine.SetState('idle');
+        }
+
+        // Update UI
+        if (this.uimanager) {
+            this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+        }
+
+        console.log(`Switched to weapon: ${this.weaponName}`);
+    }
+
+    Initialize(){
+        const scene = this.model;
+        const scale = this.modelScale;
+        scene.scale.set(scale, scale, scale);
+        scene.position.set(0.04, -0.02, 0.0);
+        scene.setRotationFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(5), THREE.MathUtils.degToRad(185), 0));
+
+        scene.traverse(child=>{
+            if(!child.isSkinnedMesh){
+                return;
+            }
+
+            child.receiveShadow = true;
+        });
+
+        this.camera.add(scene);
+
+        this.SetAnimations();
+        this.SetMuzzleFlash();
+        this.SetSoundEffect();
+
+        this.stateMachine = new WeaponFSM(this);
+        this.stateMachine.SetState('idle');
+
+        this.uimanager = this.FindEntity("UIManager").GetComponent("UIManager");
+        this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+
+        if (!this.inputSetup) {
+            this.SetupInput();
+            this.inputSetup = true;
+        }
+
+        // Listen to ammo pickup event
+        this.parent.RegisterEventHandler(this.AmmoPickup, "AmmoPickup");
+
+        // Listen to weapon upgrade event
+        this.parent.RegisterEventHandler(this.OnWeaponUpgrade, "weapon_upgrade");
+    }
+
+    SetupInput(){
+        Input.AddMouseDownListner( e => {
+            if(e.button != 0 || this.reloading){
+                return;
+            }
+
+            this.shoot = true;
+            this.shootTimer = 0.0;
+        });
+
+        Input.AddMouseUpListner( e => {
+            if(e.button != 0){
+                return;
+            }
+
+            this.shoot = false;
+        });
+
+        Input.AddKeyDownListner(e => {
+            if(e.repeat) return;
+
+            if(e.code == "KeyR"){
+                this.Reload();
+            }
+        });
+    }
+
+    Reload(){
+        if(this.reloading || this.magAmmo == this.ammoPerMag || this.ammo == 0){
+            return;
+        }
+
+        this.reloading = true;
+        this.stateMachine.SetState('reload');
+    }
+
+    ReloadDone(){
+        this.reloading = false;
+        const bulletsNeeded = this.ammoPerMag - this.magAmmo;
+        this.magAmmo = Math.min(this.ammo + this.magAmmo, this.ammoPerMag);
+        this.ammo = Math.max(0, this.ammo - bulletsNeeded);
+        this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+    }
+
+    Raycast(){
+        try {
+            const start = new THREE.Vector3(0.0, 0.0, -1.0);
+            start.unproject(this.camera);
+            const end = new THREE.Vector3(0.0, 0.0, 1.0);
+            end.unproject(this.camera);
+
+            // Include SensorTrigger so we can hit animals
+            const collisionMask = CollisionFilterGroups.AllFilter;
+
+            const hit = AmmoHelper.CastRay(this.world, start, end, this.hitResult, collisionMask);
+
+            if(hit){
+                const collisionObj = this.hitResult.collisionObject;
+                if (!collisionObj) return;
+
+                // Look up entity from collision object registry
+                const entity = AmmoHelper.GetEntityFromCollisionObject(collisionObj);
+
+                if (entity && entity.Broadcast) {
+                    entity.Broadcast({'topic': 'hit', from: this.parent, amount: this.damage, hitResult: this.hitResult});
+                }
+            }
+        } catch (e) {
+            console.error('Weapon.Raycast error:', e);
+        }
+    }
+
+    FireNuke() {
+        // Get camera forward direction
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(this.camera.quaternion);
+
+        const startPos = this.camera.position.clone();
+        startPos.add(forward.clone().multiplyScalar(1.0)); // Start 1 unit in front of camera
+
+        // Broadcast nuke fired event - SpawnManager will create the projectile
+        const spawnManager = this.FindEntity("SpawnManager");
+        if (spawnManager) {
+            spawnManager.Broadcast({
+                topic: 'nuke_fired',
+                startPosition: startPos,
+                direction: forward,
+                camera: this.camera
+            });
+        }
+
+        // Also trigger immediate screen shake/flash
+        this.TriggerNukeEffects();
+    }
+
+    TriggerNukeEffects() {
+        // Screen flash effect
+        const flashOverlay = document.createElement('div');
+        flashOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0.8;
+            pointer-events: none;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        `;
+        document.body.appendChild(flashOverlay);
+
+        setTimeout(() => {
+            flashOverlay.style.opacity = '0';
+            setTimeout(() => flashOverlay.remove(), 500);
+        }, 100);
+    }
+
+    Shoot(t){
+        if(!this.shoot){
+            return;
+        }
+
+        if(!this.magAmmo){
+            // Reload automatically
+            this.Reload();
+            return;
+        }
+
+        if(this.shootTimer <= 0.0 ){
+            // Handle nuke weapon specially
+            if (this.weaponType === 'projectile' && this.currentWeaponKey === 'nuke') {
+                this.FireNuke();
+                this.magAmmo = 0;
+                this.ammo = 0;
+                this.shoot = false;
+                this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+                return;
+            }
+
+            // Normal hitscan shooting
+            this.flash.life = this.fireRate;
+            this.flash.rotateZ(Math.PI * Math.random());
+            const scale = Math.random() * (1.5 - 0.8) + 0.8;
+            this.flash.scale.set(scale * this.muzzleFlashScale, this.muzzleFlashScale, this.muzzleFlashScale);
+            this.shootTimer = this.fireRate;
+            this.magAmmo = Math.max(0, this.magAmmo - 1);
+            this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+
+            this.Raycast();
+            this.Broadcast({topic: 'weapon_shot', weapon: this.currentWeaponKey});
+
+            this.shotSound.isPlaying && this.shotSound.stop();
+            this.shotSound.play();
+
+            // Apply recoil
+            this.ApplyRecoil();
+        }
+
+        this.shootTimer = Math.max(0.0, this.shootTimer - t);
+    }
+
+    ApplyRecoil() {
+        // Simple visual recoil - kick the model up slightly
+        const originalY = this.model.position.y;
+        this.model.position.y += this.recoil;
+
+        // Animate back to original position
+        setTimeout(() => {
+            this.model.position.y = originalY;
+        }, 50);
+    }
+
+    AnimateMuzzle(t){
+        const mat = this.flash.children[0]?.material;
+        if (!mat) return;
+        const ratio = this.flash.life / this.fireRate;
+        mat.opacity = ratio;
+        this.flash.life = Math.max(0.0, this.flash.life - t);
+    }
+
+    Update(t){
+        this.mixer.update(t);
+        this.stateMachine.Update(t);
+        this.Shoot(t);
+        this.AnimateMuzzle(t);
+    }
+
+}

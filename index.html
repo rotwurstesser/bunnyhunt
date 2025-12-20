@@ -1,220 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>Bio Sim 3D - Mobile</title>
+  <title>Bio Sim FPS</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Text&family=Roboto:wght@400;700&display=swap"
+    rel="stylesheet">
   <style>
-    * {
-      touch-action: none;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
     body {
       margin: 0;
-      overflow: hidden;
-      background-color: #000;
-      cursor: crosshair;
-    }
-
-    #info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
+      font-family: 'Roboto', sans-serif;
       color: white;
-      font-family: monospace;
-      pointer-events: none;
-      font-size: 14px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 8px;
-      border-radius: 4px;
     }
 
-    #scoreBoard {
+    #crosshair {
       position: absolute;
-      top: 10px;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
-      color: #ffaa00;
-      font-family: monospace;
-      font-size: 24px;
-      font-weight: bold;
-      pointer-events: none;
-      text-shadow: 2px 2px 0px #000;
+      width: 2%;
+      transform: translate(-50%, -50%);
     }
 
-    #configToggle {
+    #ammo_container {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      border: 1px solid #444;
-      padding: 10px 15px;
-      border-radius: 4px;
-      font-family: monospace;
-      cursor: pointer;
-      z-index: 1001;
+      right: 5%;
+      bottom: 5%;
+      font-size: 3em;
     }
 
-    #configToggle:hover {
-      background: rgba(50, 50, 50, 0.9);
-    }
-
-    #controls {
+    #progress {
       position: absolute;
-      top: 50px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      width: 250px;
-      max-height: calc(100vh - 80px);
-      overflow-y: auto;
-      display: none;
-      z-index: 1000;
+      bottom: 9%;
+      left: 0;
+      width: 0;
+      height: 2%;
+      background-color: white;
     }
 
-    #controls.visible {
-      display: block;
-    }
-
-    #controls h3 {
-      margin-top: 0;
-    }
-
-    #controls input[type="range"] {
-      width: 100px;
-    }
-
-    .control-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-
-    .control-row span:last-child {
-      width: 30px;
-      text-align: right;
-    }
-
-    .shoot-hint {
+    #health_container {
       position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.7);
-      font-family: monospace;
-      font-size: 14px;
+      bottom: 8%;
+      left: 5%;
+      width: 18%;
+      height: 2%;
+      border: 1px solid #ffffff;
+    }
+
+    #health_progress {
+      position: absolute;
+      background-color: #ffffff;
+      width: 100%;
+      height: 100%;
+    }
+
+    #game_hud {
+      visibility: hidden;
+    }
+
+    #menu {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-color: black;
       text-align: center;
-      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      visibility: hidden;
+    }
+
+    h1 {
+      font-family: 'Libre Barcode 39 Text', cursive;
+      font-size: 4em;
+    }
+
+    button {
+      background-color: rgba(0, 0, 0, 0);
+      color: rgb(221, 221, 221);
+      font-size: 1.5em;
+      border: none;
+      cursor: pointer;
+      margin-top: 10%;
+      font-weight: 700;
+    }
+
+    #debug {
+      position: absolute;
+      right: 5%;
+      top: 5%;
     }
   </style>
 </head>
 
 <body>
-  <div id="info">Loading 3D Ecosystem...</div>
-  <div id="scoreBoard">SCORE: 0</div>
-
-  <button id="configToggle">⚙️ Config</button>
-
-  <div id="controls">
-    <h3>Visual Tweaks</h3>
-
-    <div><strong>Trees</strong></div>
-    <div class="control-row">
-      <span>Scale</span>
-      <input type="range" id="treeScale" min="0.1" max="10.0" step="0.1" value="0.8">
-      <span id="val_treeScale">0.8</span>
+  <div id="debug"></div>
+  <div id="menu">
+    <h1>Shooter Game Demo</h1>
+    <button id="start_game">NEW GAME</button>
+  </div>
+  <div id="game_hud">
+    <img id="crosshair" src="/src/ui/crosshair.png" />
+    <div id="ammo_container">
+      <span id="current_ammo">0</span>
+      <span>|</span>
+      <span id="max_ammo">0</span>
     </div>
-    <div class="control-row">
-      <span>Y-Off</span>
-      <input type="range" id="treeY" min="-5.0" max="5.0" step="0.1" value="0.0">
-      <span id="val_treeY">0.0</span>
-    </div>
-    <hr style="border-color: #444; margin: 8px 0;">
-
-    <div><strong>Grass</strong></div>
-    <div class="control-row">
-      <span>Scale</span>
-      <input type="range" id="grassScale" min="0.1" max="5.0" step="0.1" value="0.6">
-      <span id="val_grassScale">0.6</span>
-    </div>
-    <div class="control-row">
-      <span>Y-Off</span>
-      <input type="range" id="grassY" min="-2.0" max="2.0" step="0.1" value="0.0">
-      <span id="val_grassY">0.0</span>
-    </div>
-    <div class="control-row">
-      <span>Density</span>
-      <input type="range" id="grassDensity" min="1" max="10" step="1" value="3">
-      <span id="val_grassDensity">3</span>
-    </div>
-    <div class="control-row">
-      <span>Coverage</span>
-      <input type="range" id="grassCoverage" min="0.0" max="1.0" step="0.05" value="0.6">
-      <span id="val_grassCoverage">0.6</span>
-    </div>
-    <hr style="border-color: #444; margin: 8px 0;">
-
-    <div><strong>Rabbits</strong></div>
-    <div class="control-row">
-      <span>Scale</span>
-      <input type="range" id="rabbitScale" min="0.1" max="3.0" step="0.1" value="0.6">
-      <span id="val_rabbitScale">0.6</span>
-    </div>
-    <div class="control-row">
-      <span>Y-Off</span>
-      <input type="range" id="rabbitY" min="-2.0" max="2.0" step="0.1" value="0.2">
-      <span id="val_rabbitY">0.2</span>
-    </div>
-    <hr style="border-color: #444; margin: 8px 0;">
-
-    <div><strong>Wolves</strong></div>
-    <div class="control-row">
-      <span>Scale</span>
-      <input type="range" id="wolfScale" min="0.1" max="5.0" step="0.1" value="0.3">
-      <span id="val_wolfScale">0.3</span>
-    </div>
-    <div class="control-row">
-      <span>Y-Off</span>
-      <input type="range" id="wolfY" min="-2.0" max="2.0" step="0.1" value="0.7">
-      <span id="val_wolfY">0.7</span>
-    </div>
-    <hr style="border-color: #444; margin: 8px 0;">
-
-    <div><strong>Spawn Rates</strong></div>
-    <div class="control-row">
-      <span>Rabbit</span>
-      <input type="range" id="rabbitSpawnRate" min="0" max="0.1" step="0.005" value="0.01">
-      <span id="val_rabbitSpawnRate">0.01</span>
-    </div>
-    <div class="control-row">
-      <span>Wolf</span>
-      <input type="range" id="wolfSpawnRate" min="0" max="0.02" step="0.001" value="0.002">
-      <span id="val_wolfSpawnRate">0.002</span>
+    <div id="health_container">
+      <div id="health_progress"></div>
     </div>
   </div>
-
-  <div class="shoot-hint">
-    👆 Tap to shoot • Drag to pan
-  </div>
-
-  <script type="module" src="/src/main.ts"></script>
-
-  <script>
-    // Toggle configurator panel
-    document.getElementById('configToggle').addEventListener('click', function () {
-      document.getElementById('controls').classList.toggle('visible');
-    });
-  </script>
+  <div id="progress"></div>
+  <script type="module" src="/src/entry.js"></script>
 </body>
 
 </html>
