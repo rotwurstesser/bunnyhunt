@@ -15,7 +15,7 @@ export const WEAPONS = {
     pickupScale: 0.08,    // Scale for pickup display
     // Position offsets for FPS view (no arms) - weapon points forward
     positionOffset: { x: 0.15, y: -0.12, z: -0.25 },
-    rotationOffset: { x: 0, y: Math.PI, z: 0 },  // 180 deg to point forward
+    rotationOffset: { x: 0, y: 0, z: 0 },  // 0 deg to point forward
     muzzleFlashScale: 0.8,
     recoil: 0.015,
     glowColor: 0x88ff88   // Light green
