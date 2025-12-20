@@ -72,7 +72,7 @@ export default class CharacterController extends Component{
         this.SetupAnimations();
 
         this.scene.add(scene);
-        this.stateMachine.SetState('idle');
+        this.stateMachine?.SetState('idle');
     }
 
     UpdateDirection(){
@@ -162,7 +162,7 @@ export default class CharacterController extends Component{
         this.health = Math.max(0, this.health - msg.amount);
 
         if(this.health == 0){
-            this.stateMachine.SetState('dead');
+            this.stateMachine?.SetState('dead');
             // Notify GameManager about the kill
             const gameManager = this.FindEntity("GameManager");
             if (gameManager) {
@@ -173,9 +173,9 @@ export default class CharacterController extends Component{
                 });
             }
         }else{
-            const stateName = this.stateMachine.currentState.Name;
+            const stateName = this.stateMachine?.currentState?.Name;
             if(stateName == 'idle' || stateName == 'patrol'){
-                this.stateMachine.SetState('chase');
+                this.stateMachine?.SetState('chase');
             }
         }
     }
@@ -231,7 +231,7 @@ export default class CharacterController extends Component{
 
         this.UpdateDirection();
         this.MoveAlongPath(t);
-        this.stateMachine.Update(t);
+        this.stateMachine?.Update(t);
 
         this.parent.SetRotation(this.model.quaternion);
         this.parent.SetPosition(this.model.position);

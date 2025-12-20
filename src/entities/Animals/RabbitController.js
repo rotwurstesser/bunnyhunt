@@ -37,9 +37,6 @@ export default class RabbitController extends Component {
         this.navmesh = level?.GetComponent('Navmesh');
         this.player = this.FindEntity("Player");
 
-        if (!this.navmesh) {
-            console.warn('RabbitController: Navmesh not found!');
-        }
 
         // Register for hit events
         this.parent.RegisterEventHandler(this.TakeHit, 'hit');
@@ -105,18 +102,24 @@ export default class RabbitController extends Component {
         }
     }
 
-    PlayAnimation(name) {
+    PlayAnimation(name, loop = true) {
         if (!this.mixer || !this.animations?.[name]) return;
 
         const clip = this.animations[name];
+        const newAction = this.mixer.clipAction(clip);
+
+        if (!loop) {
+            newAction.setLoop(THREE.LoopOnce);
+            newAction.clampWhenFinished = true;
+        }
+
         if (this.currentAction) {
-            const newAction = this.mixer.clipAction(clip);
             newAction.reset();
             newAction.crossFadeFrom(this.currentAction, 0.2, true);
             newAction.play();
             this.currentAction = newAction;
         } else {
-            this.currentAction = this.mixer.clipAction(clip);
+            this.currentAction = newAction;
             this.currentAction.play();
         }
     }
@@ -150,16 +153,10 @@ export default class RabbitController extends Component {
     }
 
     NavigateToRandomPoint() {
-        if (!this.navmesh) {
-            console.warn('Rabbit: No navmesh for navigation');
-            return;
-        }
+        if (!this.navmesh) return;
         const node = this.navmesh.GetRandomNode(this.model.position, 20);
         if (node) {
             this.path = this.navmesh.FindPath(this.model.position, node) || [];
-            console.log(`Rabbit: Got path with ${this.path.length} waypoints`);
-        } else {
-            console.warn('Rabbit: GetRandomNode returned null');
         }
     }
 
@@ -214,65 +211,100 @@ export default class RabbitController extends Component {
     }
 
     TakeHit = (msg) => {
-        try {
-            if (this.isDead) return;
+        if (this.isDead) return;
 
-            this.health = Math.max(0, this.health - msg.amount);
-            console.log(`Rabbit hit! Health: ${this.health}`);
+        this.health = Math.max(0, this.health - msg.amount);
 
-            if (this.health <= 0) {
-                this.isDead = true;
-                this.stateMachine.SetState('dead');
+        if (this.health <= 0) {
+            this.isDead = true;
 
-                // Notify GameManager about the kill
-                const gameManager = this.FindEntity("GameManager");
-                if (gameManager) {
-                    gameManager.Broadcast({
-                        topic: 'animal_killed',
-                        entity: this.parent,
-                        type: 'rabbit'
-                    });
-                }
-
-                // Notify SpawnManager for respawn
-                const spawnManager = this.FindEntity("SpawnManager");
-                if (spawnManager) {
-                    spawnManager.Broadcast({
-                        topic: 'animal_died',
-                        entity: this.parent,
-                        type: 'rabbit',
-                        position: this.model.position.clone()
-                    });
-                }
-            } else {
-                // Got hit but not dead - flee!
-                if (this.stateMachine.currentState?.Name !== 'flee') {
-                    this.stateMachine.SetState('flee');
-                }
+            // IMPORTANT: Send notifications BEFORE setting state (which may crash)
+            // Notify GameManager about the kill
+            const gameManager = this.FindEntity("GameManager");
+            if (gameManager) {
+                gameManager.Broadcast({
+                    topic: 'animal_killed',
+                    entity: this.parent,
+                    type: 'rabbit'
+                });
             }
-        } catch (e) {
-            console.error('RabbitController.TakeHit error:', e);
+
+            // Notify SpawnManager for respawn
+            const spawnManager = this.FindEntity("SpawnManager");
+            if (spawnManager) {
+                spawnManager.Broadcast({
+                    topic: 'animal_died',
+                    entity: this.parent,
+                    type: 'rabbit',
+                    position: this.model.position.clone()
+                });
+            }
+
+            // Now set state (which triggers OnDeath)
+            this.stateMachine.SetState('dead');
+        } else {
+            // Got hit but not dead - flee!
+            if (this.stateMachine.currentState?.Name !== 'flee') {
+                this.stateMachine.SetState('flee');
+            }
         }
     }
 
     OnDeath() {
         // Remove physics collider
-        if (this.ghostObj) {
-            AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
-            this.physicsWorld.removeCollisionObject(this.ghostObj);
+        if (this.ghostObj && this.physicsWorld) {
+            try {
+                AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
+                // Use the correct Ammo.js method
+                if (typeof this.physicsWorld.removeCollisionObject === 'function') {
+                    this.physicsWorld.removeCollisionObject(this.ghostObj);
+                } else if (typeof this.physicsWorld.getWorld === 'function') {
+                    this.physicsWorld.getWorld().removeCollisionObject(this.ghostObj);
+                }
+            } catch (e) {
+                console.warn('Failed to remove collision object:', e);
+            }
+            this.ghostObj = null;
         }
+    }
+
+    CreateBloodPool() {
+        // Create a simple red circle on the ground
+        const geometry = new THREE.CircleGeometry(0.8, 16);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x8B0000,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        const bloodPool = new THREE.Mesh(geometry, material);
+        bloodPool.rotation.x = -Math.PI / 2;
+        bloodPool.position.copy(this.model.position);
+        bloodPool.position.y = 0.01; // Just above ground
+        this.scene.add(bloodPool);
     }
 
     Cleanup() {
         // Called when entity is removed
-        if (this.ghostObj) {
-            AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
-            this.physicsWorld.removeCollisionObject(this.ghostObj);
+        if (this.ghostObj && this.physicsWorld) {
+            try {
+                AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
+                if (typeof this.physicsWorld.removeCollisionObject === 'function') {
+                    this.physicsWorld.removeCollisionObject(this.ghostObj);
+                }
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+            this.ghostObj = null;
         }
-        this.scene.remove(this.model);
+        if (this.model) {
+            this.scene.remove(this.model);
+        }
     }
 
     Update(t) {
+        if (!this.initialized) return;
+
         // Update animations
         if (this.mixer) {
             this.mixer.update(t);
@@ -280,12 +312,12 @@ export default class RabbitController extends Component {
 
         if (this.isDead) {
             // Just update death animation
-            this.stateMachine.Update(t);
+            this.stateMachine?.Update(t);
             return;
         }
 
         this.MoveAlongPath(t);
-        this.stateMachine.Update(t);
+        this.stateMachine?.Update(t);
         this.UpdateColliderPosition();
 
         // Sync entity position

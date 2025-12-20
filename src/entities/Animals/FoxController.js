@@ -113,18 +113,24 @@ export default class FoxController extends Component {
         }
     }
 
-    PlayAnimation(name) {
+    PlayAnimation(name, loop = true) {
         if (!this.mixer || !this.animations?.[name]) return;
 
         const clip = this.animations[name];
+        const newAction = this.mixer.clipAction(clip);
+
+        if (!loop) {
+            newAction.setLoop(THREE.LoopOnce);
+            newAction.clampWhenFinished = true;
+        }
+
         if (this.currentAction) {
-            const newAction = this.mixer.clipAction(clip);
             newAction.reset();
             newAction.crossFadeFrom(this.currentAction, 0.2, true);
             newAction.play();
             this.currentAction = newAction;
         } else {
-            this.currentAction = this.mixer.clipAction(clip);
+            this.currentAction = newAction;
             this.currentAction.play();
         }
     }
@@ -154,40 +160,21 @@ export default class FoxController extends Component {
     CanSeePlayer() {
         if (!this.player) return false;
 
-        const playerPos = this.player.Position.clone();
-        const foxPos = this.model.position.clone();
-        foxPos.y += 0.5;
+        const playerPos = this.player.Position;
+        const foxPos = this.model.position;
 
-        const toPlayer = playerPos.clone().sub(foxPos);
-        const distSq = toPlayer.lengthSq();
+        const dx = playerPos.x - foxPos.x;
+        const dz = playerPos.z - foxPos.z;
+        const distSq = dx * dx + dz * dz;
 
-        // Distance check
+        // Distance check - can see player within view distance
         if (distSq > this.viewDistance * this.viewDistance) {
             return false;
         }
 
-        // Angle check
-        toPlayer.normalize();
-        const forward = this.forwardVec.clone().applyQuaternion(this.model.quaternion);
-        const dot = toPlayer.dot(forward);
-
-        if (dot < this.viewAngle) {
-            return false;
-        }
-
-        // Raycast check (can see through walls?)
-        const rayInfo = {};
-        const collisionMask = CollisionFilterGroups.AllFilter & ~CollisionFilterGroups.SensorTrigger;
-
-        if (AmmoHelper.CastRay(this.physicsWorld, foxPos, playerPos, rayInfo, collisionMask)) {
-            const body = Ammo.castObject(rayInfo.collisionObject, Ammo.btRigidBody);
-            const playerBody = this.player.GetComponent('PlayerPhysics')?.body;
-            if (body === playerBody) {
-                return true;
-            }
-        }
-
-        return false;
+        // Simplified: fox can always see player if within range (no angle/raycast check)
+        // This makes the fox more aggressive
+        return true;
     }
 
     IsCloseToPlayer() {
@@ -207,7 +194,7 @@ export default class FoxController extends Component {
     NavigateToPlayer() {
         if (!this.player || !this.navmesh) return;
         this.tempVec.copy(this.player.Position);
-        this.tempVec.y = this.model.position.y;
+        this.tempVec.y = 0; // Match navmesh Y level
         this.path = this.navmesh.FindPath(this.model.position, this.tempVec) || [];
     }
 
@@ -265,8 +252,8 @@ export default class FoxController extends Component {
 
         if (this.health <= 0) {
             this.isDead = true;
-            this.stateMachine.SetState('dead');
 
+            // IMPORTANT: Send notifications BEFORE setting state (which may crash)
             // Notify GameManager
             const gameManager = this.FindEntity("GameManager");
             if (gameManager) {
@@ -287,6 +274,9 @@ export default class FoxController extends Component {
                     position: this.model.position.clone()
                 });
             }
+
+            // Now set state
+            this.stateMachine.SetState('dead');
         } else {
             // Got hit but not dead - become aggressive!
             const currentState = this.stateMachine.currentState?.Name;
@@ -297,33 +287,66 @@ export default class FoxController extends Component {
     }
 
     OnDeath() {
-        if (this.ghostObj) {
-            AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
-            this.physicsWorld.removeCollisionObject(this.ghostObj);
+        if (this.ghostObj && this.physicsWorld) {
+            try {
+                AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
+                if (typeof this.physicsWorld.removeCollisionObject === 'function') {
+                    this.physicsWorld.removeCollisionObject(this.ghostObj);
+                }
+            } catch (e) {
+                console.warn('Fox OnDeath error:', e);
+            }
+            this.ghostObj = null;
         }
+    }
+
+    CreateBloodPool() {
+        const geometry = new THREE.CircleGeometry(1.0, 16);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x8B0000,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        const bloodPool = new THREE.Mesh(geometry, material);
+        bloodPool.rotation.x = -Math.PI / 2;
+        bloodPool.position.copy(this.model.position);
+        bloodPool.position.y = 0.01;
+        this.scene.add(bloodPool);
     }
 
     Cleanup() {
-        if (this.ghostObj) {
-            AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
-            this.physicsWorld.removeCollisionObject(this.ghostObj);
+        if (this.ghostObj && this.physicsWorld) {
+            try {
+                AmmoHelper.UnregisterCollisionEntity(this.ghostObj);
+                if (typeof this.physicsWorld.removeCollisionObject === 'function') {
+                    this.physicsWorld.removeCollisionObject(this.ghostObj);
+                }
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+            this.ghostObj = null;
         }
-        this.scene.remove(this.model);
+        if (this.model) {
+            this.scene.remove(this.model);
+        }
     }
 
     Update(t) {
+        if (!this.initialized) return;
+
         // Update animations
         if (this.mixer) {
             this.mixer.update(t);
         }
 
         if (this.isDead) {
-            this.stateMachine.Update(t);
+            this.stateMachine?.Update(t);
             return;
         }
 
         this.MoveAlongPath(t);
-        this.stateMachine.Update(t);
+        this.stateMachine?.Update(t);
         this.UpdateColliderPosition();
 
         // Sync entity position

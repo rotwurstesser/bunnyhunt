@@ -122,8 +122,6 @@ export default class Weapon extends Component{
         if (this.uimanager) {
             this.uimanager.SetAmmo(this.magAmmo, this.ammo);
         }
-
-        console.log(`Switched to weapon: ${this.weaponName}`);
     }
 
     Initialize(){
@@ -198,7 +196,7 @@ export default class Weapon extends Component{
         }
 
         this.reloading = true;
-        this.stateMachine.SetState('reload');
+        this.stateMachine?.SetState('reload');
     }
 
     ReloadDone(){
@@ -347,8 +345,8 @@ export default class Weapon extends Component{
     }
 
     Update(t){
-        this.mixer.update(t);
-        this.stateMachine.Update(t);
+        this.mixer?.update(t);
+        this.stateMachine?.Update(t);
         this.Shoot(t);
         this.AnimateMuzzle(t);
     }

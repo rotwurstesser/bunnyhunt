@@ -30,7 +30,6 @@ class WanderState extends State {
     get Name() { return 'wander'; }
 
     Enter(prevState) {
-        console.log('Rabbit entering wander state');
         this.parent.proxy.NavigateToRandomPoint();
         this.parent.proxy.PlayAnimation('run');
         this.stuckTimer = 0;
@@ -103,19 +102,14 @@ class DeadState extends State {
 
     Enter(prevState) {
         this.parent.proxy.ClearPath();
-        this.parent.proxy.PlayAnimation('die');
+        this.parent.proxy.PlayAnimation('die', false); // Play once, don't loop
         this.parent.proxy.OnDeath();
+        this.parent.proxy.CreateBloodPool();
         this.deathTime = 0;
     }
 
     Update(t) {
         this.deathTime += t;
-        // Let death animation play, then shrink
-        if (this.deathTime > 1.5) {
-            const shrinkTime = this.deathTime - 1.5;
-            const scale = Math.max(0, 1 - shrinkTime * 2);
-            this.parent.proxy.model.scale.setScalar(scale * this.parent.proxy.baseScale);
-        }
     }
 
     Exit() {}
