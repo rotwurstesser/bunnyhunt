@@ -3,6 +3,7 @@
  *
  * Floating damage numbers that appear when entities take damage.
  * Floats upward and fades out over time.
+ * Self-animates using requestAnimationFrame (no entity update needed).
  */
 
 import * as THREE from 'three';
@@ -28,8 +29,10 @@ export default class DamageText extends Component {
   private readonly position: THREE.Vector3;
   private readonly amount: number;
   private readonly lifeTime: number = 1.0;
-  private age: number = 0;
+  private startTime: number = 0;
   private mesh: THREE.Sprite | null = null;
+  private animationId: number = 0;
+  private destroyed: boolean = false;
 
   // ============================================================================
   // CONSTRUCTOR
@@ -82,29 +85,43 @@ export default class DamageText extends Component {
     this.mesh.scale.set(2, 1, 1); // Scale sprite
 
     this.scene.add(this.mesh);
+
+    // Start self-animation
+    this.startTime = performance.now();
+    this.animate();
   }
 
   // ============================================================================
-  // UPDATE
+  // SELF-ANIMATION (doesn't rely on entity Update)
   // ============================================================================
 
-  override Update(deltaTime: number): void {
-    this.age += deltaTime;
+  private animate = (): void => {
+    if (this.destroyed || !this.mesh) return;
 
-    if (this.age >= this.lifeTime) {
+    const elapsed = (performance.now() - this.startTime) / 1000;
+
+    if (elapsed >= this.lifeTime) {
       this.destroy();
       return;
     }
 
-    if (!this.mesh) return;
+    // Float up (1.5 units per second)
+    this.mesh.position.y = this.position.y + 1.0 + elapsed * 1.5;
 
-    // Float up
-    this.mesh.position.y += 1.5 * deltaTime;
-
-    // Update opacity (fade out after 0.5s)
-    if (this.age > 0.5) {
-      this.mesh.material.opacity = 1 - (this.age - 0.5) / 0.5;
+    // Fade out after 0.5s
+    if (elapsed > 0.5) {
+      this.mesh.material.opacity = 1 - (elapsed - 0.5) / 0.5;
     }
+
+    this.animationId = requestAnimationFrame(this.animate);
+  };
+
+  // ============================================================================
+  // UPDATE (kept for compatibility but not needed)
+  // ============================================================================
+
+  override Update(_deltaTime: number): void {
+    // Self-animates via requestAnimationFrame
   }
 
   // ============================================================================
@@ -112,6 +129,14 @@ export default class DamageText extends Component {
   // ============================================================================
 
   private destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+
+    // Cancel animation
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+    }
+
     if (this.mesh) {
       this.scene.remove(this.mesh);
 
@@ -120,11 +145,6 @@ export default class DamageText extends Component {
       }
       this.mesh.material.dispose();
       this.mesh = null;
-    }
-
-    // Mark parent entity as dead for cleanup
-    if (this.parent && typeof (this.parent as { SetDead?: () => void }).SetDead === 'function') {
-      (this.parent as { SetDead: () => void }).SetDead();
     }
   }
 

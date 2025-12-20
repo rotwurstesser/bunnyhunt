@@ -61,23 +61,85 @@
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 10px;
+      gap: 8px;
       z-index: 100;
     }
 
     .weapon-item {
-      padding: 5px 10px;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid #555;
-      color: #aaa;
-      font-size: 1.2em;
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #444;
+      color: #888;
+      font-size: 0.9em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 4px;
     }
 
     .weapon-item.active {
       border-color: #0f0;
       color: #fff;
-      background: rgba(0, 50, 0, 0.6);
+      background: rgba(0, 50, 0, 0.8);
       box-shadow: 0 0 10px #0f0;
+    }
+
+    .weapon-num {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 0.8em;
+    }
+
+    .weapon-item.active .weapon-num {
+      background: rgba(0, 255, 0, 0.3);
+    }
+
+    #score {
+      position: absolute;
+      top: 2%;
+      right: 2%;
+      font-size: 1.5em;
+      text-shadow: 2px 2px 4px black;
+    }
+
+    #weapon_name {
+      position: absolute;
+      bottom: 12%;
+      right: 5%;
+      font-size: 1.2em;
+      color: #0f0;
+      text-shadow: 0 0 5px #0f0;
+    }
+
+    #upgrade_notification {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 50, 0, 0.9);
+      border: 2px solid #0f0;
+      padding: 20px 40px;
+      font-size: 1.5em;
+      color: #0f0;
+      text-align: center;
+      z-index: 200;
+      box-shadow: 0 0 20px #0f0;
+    }
+
+    #upgrade_notification.hidden {
+      display: none;
+    }
+
+    #upgrade_notification.animate-in {
+      animation: pulse 0.5s ease-out;
+    }
+
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.1); }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
     }
 
     #game_hud {
@@ -128,21 +190,24 @@
   </div>
   <div id="game_hud">
     <img id="crosshair" src="/src/ui/crosshair.png" />
+    <div id="weapon_list"></div>
+    <div id="score">KILLS: 0</div>
     <div id="ammo_container">
       <span id="current_ammo">0</span>
       <span>|</span>
       <span id="max_ammo">0</span>
     </div>
-    <div id="weapon-info">
-      <div id="weapon-name">PISTOL</div>
-      <div id="ammo-display">12 | 60</div>
-    </div>
+    <div id="weapon_name">RIFLE</div>
     <div id="health_container">
       <div id="health_progress"></div>
     </div>
+    <div id="upgrade_notification" class="hidden">
+      <div>WEAPON ACQUIRED</div>
+      <div id="upgrade_weapon_name"></div>
+    </div>
   </div>
   <div id="progress"></div>
-  <script type="module" src="/src/entry.js"></script>
+  <script type="module" src="/src/entry.ts"></script>
 </body>
 
 </html>

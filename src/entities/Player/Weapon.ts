@@ -259,6 +259,13 @@ export default class Weapon extends Component {
       if (e.code === 'KeyR') {
         this.reload();
       }
+      // Number keys 1-9 for weapon switching
+      if (e.code.startsWith('Digit')) {
+        const num = parseInt(e.code.replace('Digit', ''), 10);
+        if (num >= 1 && num <= 9 && num <= this.ownedWeapons.length) {
+          this.switchWeaponByIndex(num - 1);
+        }
+      }
     });
 
     Input.AddWheelListener((e: WheelEvent) => {

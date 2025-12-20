@@ -72,7 +72,7 @@ export default class UIManager extends Component {
   // ============================================================================
 
   /**
-   * Update weapon list display
+   * Update weapon list display with numbered slots
    */
   SetWeaponList(owned: string[], current: string): void {
     const container = document.getElementById('weapon_list');
@@ -80,11 +80,23 @@ export default class UIManager extends Component {
 
     container.innerHTML = '';
 
-    owned.forEach(w => {
+    owned.forEach((w, index) => {
       const div = document.createElement('div');
       div.className = 'weapon-item';
       if (w === current) div.className += ' active';
-      div.innerText = w.toUpperCase();
+
+      // Number span
+      const numSpan = document.createElement('span');
+      numSpan.className = 'weapon-num';
+      numSpan.innerText = String(index + 1);
+
+      // Name span
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'weapon-name';
+      nameSpan.innerText = w.toUpperCase();
+
+      div.appendChild(numSpan);
+      div.appendChild(nameSpan);
       container.appendChild(div);
     });
   }
