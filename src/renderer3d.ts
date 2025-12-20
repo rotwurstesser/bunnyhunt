@@ -8,7 +8,7 @@ import { ModelFactory } from './models';
 
 
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils';
 
 export class Renderer3D {
   private scene: THREE.Scene;
@@ -774,7 +774,7 @@ export class Renderer3D {
     const scale = type === 'rabbit' ? CONFIG.visual.rabbitScale * 18 : CONFIG.visual.wolfScale * 14;
 
     for (let i = 0; i < 5; i++) {
-      const clone = cloneSkeleton(scene) as THREE.Group;
+      const clone = SkeletonUtils.clone(scene) as THREE.Group;
       clone.visible = false;
       clone.scale.set(scale, scale, scale);
       this.scene.add(clone);
@@ -861,24 +861,26 @@ export class Renderer3D {
     if (this.loadedAssets.rabbit) {
       if (this.rabbitMesh) {
         this.scene.remove(this.rabbitMesh);
-        this.rabbitMesh.dispose();
+        if (this.rabbitMesh.geometry) this.rabbitMesh.geometry.dispose();
+        // Materials might be shared or single, check type
+        if (this.rabbitMesh.material) {
+          if (Array.isArray(this.rabbitMesh.material)) {
+            this.rabbitMesh.material.forEach(m => m.dispose());
+          } else {
+            (this.rabbitMesh.material as THREE.Material).dispose();
+          }
+        }
       }
       const geo = this.loadedAssets.rabbit.geo.clone();
-      // Apply scale/rotation to geometry directly for InstancedMesh
-      // Usually need to rotate Y or X. try default first.
 
       const mat = this.loadedAssets.rabbit.mat;
-      // Ensure material supports instancing color if we want color variation (not needed for now)
 
       this.rabbitMesh = new THREE.InstancedMesh(geo, mat, 5000);
       this.rabbitMesh.castShadow = true;
       this.rabbitMesh.receiveShadow = true;
 
-      // Rabbit model orientation fix (often needed)
-      // If rabbit faces Z, we might need rotation.
-      // Procedural rabbit faced +X.
-      // Let's assume model faces +Z. rotate Y -90?
-      // We'll see in testing.
+      // Rabbit model orientation (rotate Y 180 or something if needed)
+      // For now, identity is fine as procedural was simple.
 
       this.scene.add(this.rabbitMesh);
     }
@@ -887,7 +889,14 @@ export class Renderer3D {
     if (this.loadedAssets.fox) {
       if (this.wolfMesh) {
         this.scene.remove(this.wolfMesh);
-        this.wolfMesh.dispose();
+        if (this.wolfMesh.geometry) this.wolfMesh.geometry.dispose();
+        if (this.wolfMesh.material) {
+          if (Array.isArray(this.wolfMesh.material)) {
+            this.wolfMesh.material.forEach(m => m.dispose());
+          } else {
+            (this.wolfMesh.material as THREE.Material).dispose();
+          }
+        }
       }
       const geo = this.loadedAssets.fox.geo.clone();
       const mat = this.loadedAssets.fox.mat;
