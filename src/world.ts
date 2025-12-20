@@ -78,6 +78,8 @@ export class World {
       if (cell.isLand && !cell.animal) {
         animal.age = Math.floor(this.rng.range(0, animal.lifespan * 0.6));
         animal.currentEnergy = animal.getMaxEnergy();
+        // Initialize for static mode movement
+        animal.updateSlot = Math.floor(this.rng.next() * 10); // Random slot 0-9
         cell.setAnimal(animal);
         break;
       }
@@ -163,18 +165,10 @@ export class World {
     this.time++;
     this.events = []; // Clear events from previous tick
 
-    // In static mode, skip all AI updates for max performance
+    // In static mode, use lightweight movement (no full AI)
     if (RUNTIME.staticMode) {
-      // Only update ground cover visuals occasionally
-      if (this.time % 10 === 0 && !RUNTIME.headless) {
-        for (let y = 0; y < this.height; y += 3) {
-          for (let x = 0; x < this.width; x += 3) {
-            const cell = this.cells[y][x];
-            if (cell.isLand) this.updateGroundCover(cell);
-          }
-        }
-      }
-      return; // Skip all AI/plant updates
+      this.staticModeTick();
+      return;
     }
 
     for (let y = 0; y < this.height; y++) {
@@ -194,6 +188,117 @@ export class World {
         if (cell.plant) cell.plant.update(this, cell);
         if (cell.animal && !cell.animal.hasMoved) cell.animal.update(this, cell);
         if (!RUNTIME.headless && cell.isLand) this.updateGroundCover(cell);
+      }
+    }
+  }
+
+  // Lightweight movement for static/shooting mode - much faster than full AI
+  private staticModeTick() {
+    const TIME_SLOTS = 10; // Time-slicing: only update 10% of animals per tick
+    const currentSlot = this.time % TIME_SLOTS;
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const cell = this.cells[y][x];
+        const animal = cell.animal;
+        if (!animal) continue;
+
+        // Time-slicing: only update animals in this slot
+        if (animal.updateSlot !== currentSlot) continue;
+
+        // Initialize velocity if not set (first time)
+        if (animal.vx === 0 && animal.vy === 0) {
+          const angle = this.rng.next() * Math.PI * 2;
+          const speed = animal.type === AnimalType.Rabbit ? 1.5 : 0.8;
+          animal.vx = Math.cos(angle) * speed;
+          animal.vy = Math.sin(angle) * speed;
+        }
+
+        // RABBIT: Hopping behavior - quick jumps with pauses
+        if (animal.type === AnimalType.Rabbit) {
+          // Hop every ~20 ticks (randomized)
+          const hopPhase = (this.time + animal.id * 7) % 25;
+          if (hopPhase < 3) {
+            // Hop! Move 1-2 cells quickly
+            const hopDist = 1 + Math.floor(this.rng.next() * 2);
+            const newX = Math.round(x + animal.vx * hopDist);
+            const newY = Math.round(y + animal.vy * hopDist);
+
+            if (this.tryMoveAnimal(cell, newX, newY)) {
+              // Occasionally change direction after hop
+              if (this.rng.next() < 0.3) {
+                const turn = (this.rng.next() - 0.5) * Math.PI;
+                const cos = Math.cos(turn), sin = Math.sin(turn);
+                const nvx = animal.vx * cos - animal.vy * sin;
+                const nvy = animal.vx * sin + animal.vy * cos;
+                animal.vx = nvx;
+                animal.vy = nvy;
+              }
+            } else {
+              // Bounce off obstacle
+              animal.vx = -animal.vx + (this.rng.next() - 0.5) * 0.5;
+              animal.vy = -animal.vy + (this.rng.next() - 0.5) * 0.5;
+            }
+          }
+          // Otherwise: rabbit is pausing (no movement)
+        }
+        // WOLF/FOX: Smooth walking with occasional direction changes
+        else if (animal.type === AnimalType.Wolf) {
+          // Move every tick (smooth walking)
+          const newX = Math.round(x + animal.vx);
+          const newY = Math.round(y + animal.vy);
+
+          if (this.tryMoveAnimal(cell, newX, newY)) {
+            // Small random direction change (smooth wandering)
+            if (this.rng.next() < 0.1) {
+              const turn = (this.rng.next() - 0.5) * 0.5; // Small turn
+              const cos = Math.cos(turn), sin = Math.sin(turn);
+              const nvx = animal.vx * cos - animal.vy * sin;
+              const nvy = animal.vx * sin + animal.vy * cos;
+              animal.vx = nvx;
+              animal.vy = nvy;
+            }
+          } else {
+            // Bounce off obstacle/edge
+            animal.vx = -animal.vx + (this.rng.next() - 0.5) * 0.3;
+            animal.vy = -animal.vy + (this.rng.next() - 0.5) * 0.3;
+            // Normalize speed
+            const len = Math.sqrt(animal.vx * animal.vx + animal.vy * animal.vy);
+            if (len > 0) {
+              animal.vx = (animal.vx / len) * 0.8;
+              animal.vy = (animal.vy / len) * 0.8;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Try to move animal to new position, returns true if successful
+  private tryMoveAnimal(fromCell: Cell, toX: number, toY: number): boolean {
+    // Boundary check
+    if (toX < 0 || toX >= this.width || toY < 0 || toY >= this.height) {
+      return false;
+    }
+    const toCell = this.cells[toY][toX];
+    // Can only move to land without another animal
+    if (!toCell.isLand || toCell.animal) {
+      return false;
+    }
+    // Move!
+    const animal = fromCell.animal!;
+    fromCell.animal = null;
+    toCell.animal = animal;
+    return true;
+  }
+
+  // Kill all animals without respawn (for nuke)
+  killAllAnimals() {
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (this.cells[y][x].animal) {
+          this.cells[y][x].animal = null;
+        }
       }
     }
   }

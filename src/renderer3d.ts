@@ -528,7 +528,8 @@ export class Renderer3D {
       else if (vis.type === AnimalType.Wolf) this.score += 5;
     }
 
-    animals.forEach(id => this.worldRef.killAnimal(id));
+    // Use killAllAnimals to avoid respawning in static mode
+    this.worldRef.killAllAnimals();
 
     // Burn Trees
     for (let y = 0; y < this.worldRef.height; y++) {
