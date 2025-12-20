@@ -11,3 +11,5 @@ jobs:
       - run: npm ci && npm run build
       - name: Deploy to Firebase
         run: npx firebase-tools deploy --token "${{ secrets.FIREBASE_SERVICE_ACCOUNT_RABBIT_HUNTING_1F656 }}" --only hosting --project rabbit-hunting-1f656 --non-interactive
+      - name: Show Deployment URL
+        run: echo "::notice title=Deployment URL::https://rabbit-hunting-1f656.web.app"
