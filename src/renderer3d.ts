@@ -6,8 +6,9 @@ import { AnimalType, PlantType, GroundType } from './enums';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { ModelFactory } from './models';
 
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
+
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils';
 
 export class Renderer3D {
   private scene: THREE.Scene;
@@ -21,6 +22,23 @@ export class Renderer3D {
   private grassMesh!: THREE.InstancedMesh;
   private rabbitMesh!: THREE.InstancedMesh;
   private wolfMesh!: THREE.InstancedMesh;
+
+  // Loaded Assets
+  private loader = new GLTFLoader();
+  private clock = new THREE.Clock();
+  private loadedAssets: {
+    rabbit: { geo: THREE.BufferGeometry, mat: THREE.Material, scene: THREE.Group, animations: THREE.AnimationClip[] } | null,
+    fox: { geo: THREE.BufferGeometry, mat: THREE.Material, scene: THREE.Group, animations: THREE.AnimationClip[] } | null
+  } = { rabbit: null, fox: null };
+
+  // Death Animation Pools
+  private deathPool: {
+    mesh: THREE.Group,
+    mixer: THREE.AnimationMixer,
+    active: boolean,
+    type: 'rabbit' | 'fox'
+  }[] = [];
+  private deathMixers: THREE.AnimationMixer[] = [];
 
   // Data reuse
   private dummy = new THREE.Object3D();
@@ -117,6 +135,9 @@ export class Renderer3D {
     window.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
     window.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
     window.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
+
+    // Start loading external assets
+    this.loadAssets();
   }
 
   // Touch control state
@@ -404,6 +425,9 @@ export class Renderer3D {
 
         if (gx >= 0 && gx < this.worldRef.width && gy >= 0 && gy < this.worldRef.height) {
           this.spawnKillEffect(gx, gy, this.worldRef);
+          // Trigger death animation
+          const type = meshType === 'rabbit' ? AnimalType.Rabbit : AnimalType.Wolf;
+          this.spawnDeathAnimation(gx, gy, type);
         }
 
         // Score Logic
@@ -696,6 +720,162 @@ export class Renderer3D {
       }
     }, undefined, (e) => console.warn("Failed to load fox.obj", e));
     */
+  }
+
+  // Load external assets (Rabbit/Fox)
+  public async loadAssets() {
+    // Load Rabbit
+    try {
+      const gltf = await this.loader.loadAsync('/models/low_poly_rabbit.glb');
+      let mesh: THREE.Mesh | null = null;
+      gltf.scene.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh && !mesh) mesh = c as THREE.Mesh;
+      });
+      if (mesh) {
+        this.loadedAssets.rabbit = {
+          geo: (mesh as THREE.Mesh).geometry,
+          mat: (mesh as THREE.Mesh).material as THREE.Material,
+          scene: gltf.scene,
+          animations: gltf.animations
+        };
+        this.createDeathPool('rabbit', gltf.scene); // Removed unused anims param
+      }
+    } catch (e) {
+      console.warn('Rabbit model load failed:', e);
+    }
+
+    // Load Fox
+    try {
+      const gltf = await this.loader.loadAsync('/models/low_poly_fox.glb');
+      let mesh: THREE.Mesh | null = null;
+      gltf.scene.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh && !mesh) mesh = c as THREE.Mesh;
+      });
+      if (mesh) {
+        this.loadedAssets.fox = {
+          geo: (mesh as THREE.Mesh).geometry,
+          mat: (mesh as THREE.Mesh).material as THREE.Material,
+          scene: gltf.scene,
+          animations: gltf.animations
+        };
+        this.createDeathPool('fox', gltf.scene);
+      }
+    } catch (e) {
+      console.warn('Fox model load failed:', e);
+    }
+
+    // Swaps procedural meshes with new models
+    this.recreateAnimalMeshes();
+  }
+
+  private createDeathPool(type: 'rabbit' | 'fox', scene: THREE.Group) {
+    const scale = type === 'rabbit' ? CONFIG.visual.rabbitScale * 18 : CONFIG.visual.wolfScale * 14;
+
+    for (let i = 0; i < 5; i++) {
+      const clone = cloneSkeleton(scene) as THREE.Group;
+      clone.visible = false;
+      clone.scale.set(scale, scale, scale);
+      this.scene.add(clone);
+
+      const mixer = new THREE.AnimationMixer(clone);
+      this.deathPool.push({ mesh: clone, mixer, active: false, type });
+      this.deathMixers.push(mixer);
+    }
+  }
+
+  public spawnDeathAnimation(wx: number, wz: number, type: AnimalType) {
+    const poolType = type === AnimalType.Rabbit ? 'rabbit' : 'fox';
+    const item = this.deathPool.find(p => !p.active && p.type === poolType);
+    if (!item) return;
+
+    item.active = true;
+    item.mesh.visible = true;
+
+    // Position (Correct for world offset)
+    // The renderer uses 0,0 center, but world coords are 0..width.
+    // The visual conversion is usually: x + offset
+    const offset = -this.worldRef.width / 2;
+    item.mesh.position.set(wx + offset, 0, wz + offset); // Assume ground level 0
+    item.mesh.rotation.y = Math.random() * Math.PI * 2;
+
+    // Find Animation
+    let clip: THREE.AnimationClip | undefined;
+    const assets = poolType === 'rabbit' ? this.loadedAssets.rabbit : this.loadedAssets.fox;
+
+    if (assets && assets.animations.length > 0) {
+      // Try to find death clip
+      clip = assets.animations.find(a => a.name.toLowerCase().includes('death'));
+      if (!clip) clip = assets.animations.find(a => a.name.toLowerCase().includes('die'));
+      if (!clip) clip = assets.animations[0]; // Fallback
+    }
+
+    if (clip) {
+      item.mixer.stopAllAction();
+      const action = item.mixer.clipAction(clip);
+      action.reset();
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.play();
+
+      // Auto-hide after clip duration + buffer
+      setTimeout(() => {
+        item.active = false;
+        item.mesh.visible = false;
+      }, clip.duration * 1000 + 2000); // 2 seconds extra
+    } else {
+      // No anim, just hide after a bit
+      setTimeout(() => {
+        item.active = false;
+        item.mesh.visible = false;
+      }, 1000);
+    }
+  }
+
+  public updateDeathAnimations(delta: number) {
+    this.deathMixers.forEach(m => m.update(delta));
+  }
+
+  private recreateAnimalMeshes() {
+    // 1. Rabbit
+    if (this.loadedAssets.rabbit) {
+      if (this.rabbitMesh) {
+        this.scene.remove(this.rabbitMesh);
+        this.rabbitMesh.dispose();
+      }
+      const geo = this.loadedAssets.rabbit.geo.clone();
+      // Apply scale/rotation to geometry directly for InstancedMesh
+      // Usually need to rotate Y or X. try default first.
+
+      const mat = this.loadedAssets.rabbit.mat;
+      // Ensure material supports instancing color if we want color variation (not needed for now)
+
+      this.rabbitMesh = new THREE.InstancedMesh(geo, mat, 5000);
+      this.rabbitMesh.castShadow = true;
+      this.rabbitMesh.receiveShadow = true;
+
+      // Rabbit model orientation fix (often needed)
+      // If rabbit faces Z, we might need rotation.
+      // Procedural rabbit faced +X.
+      // Let's assume model faces +Z. rotate Y -90?
+      // We'll see in testing.
+
+      this.scene.add(this.rabbitMesh);
+    }
+
+    // 2. Wolf (Fox)
+    if (this.loadedAssets.fox) {
+      if (this.wolfMesh) {
+        this.scene.remove(this.wolfMesh);
+        this.wolfMesh.dispose();
+      }
+      const geo = this.loadedAssets.fox.geo.clone();
+      const mat = this.loadedAssets.fox.mat;
+
+      this.wolfMesh = new THREE.InstancedMesh(geo, mat, 500);
+      this.wolfMesh.castShadow = true;
+      this.wolfMesh.receiveShadow = true;
+      this.scene.add(this.wolfMesh);
+    }
   }
 
   public syncWorld(world: World) {
@@ -1269,10 +1449,14 @@ export class Renderer3D {
       this.camera.position.y += moveSpeed;
       this.controls.target.y += moveSpeed;
     }
+    const delta = this.clock.getDelta();
+    this.updateDeathAnimations(delta);
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
+
+
 
   public onResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight;
