@@ -413,7 +413,7 @@ export abstract class AnimalController<TState extends string> extends Component 
   protected handleDeath(): void {
     this.isDead = true;
     this.notifyManagers();
-    this.stateMachine.SetState(this.getDeadState());
+    this.stateMachine?.SetState(this.getDeadState());
   }
 
   /**

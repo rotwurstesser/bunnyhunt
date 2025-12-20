@@ -153,7 +153,7 @@ export default class SpawnManager extends Component {
 
     const x = Math.cos(angle) * distance;
     const z = Math.sin(angle) * distance;
-    const spawnY = 0.5;
+    const spawnY = 0;
 
     // Try navmesh first
     try {

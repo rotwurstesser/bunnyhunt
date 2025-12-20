@@ -199,6 +199,7 @@ export default class Weapon extends Component {
     if (this.uimanager) {
       this.uimanager.SetAmmo(this.magAmmo, this.ammo);
       this.uimanager.SetWeaponName(this.config.name);
+      this.uimanager.SetWeaponList(this.ownedWeapons, this.currentWeaponKey);
     }
 
     // Get scene reference for impact effects
@@ -502,6 +503,21 @@ export default class Weapon extends Component {
         return;
       }
 
+      // Handle grenade launcher
+      if (this.config.type === 'projectile' && this.currentWeaponKey === 'grenadeLauncher') {
+        this.fireGrenade();
+        this.shootTimer = this.config.fireRate;
+        this.magAmmo = Math.max(0, this.magAmmo - 1);
+        this.uimanager?.SetAmmo(this.magAmmo, this.ammo);
+        this.applyRecoil();
+
+        if (this.shotSound) {
+          if (this.shotSound.isPlaying) this.shotSound.stop();
+          this.shotSound.play();
+        }
+        return;
+      }
+
       // Normal hitscan shooting
       const flashWithLife = this.flash as { life?: number };
       flashWithLife.life = this.config.fireRate;
@@ -672,6 +688,166 @@ export default class Weapon extends Component {
     }
 
     this.triggerNukeEffects();
+  }
+
+  // ============================================================================
+  // GRENADE LAUNCHER
+  // ============================================================================
+
+  private fireGrenade(): void {
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(this.camera.quaternion);
+
+    const startPos = (this.camera as THREE.PerspectiveCamera).position.clone();
+    startPos.add(forward.clone().multiplyScalar(1.0));
+
+    // Create grenade projectile
+    this.createGrenadeProjectile(startPos, forward);
+  }
+
+  private createGrenadeProjectile(startPos: THREE.Vector3, direction: THREE.Vector3): void {
+    if (!this.scene) return;
+
+    // Create visual grenade
+    const geometry = new THREE.SphereGeometry(0.15, 8, 8);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x444444,
+      metalness: 0.8,
+      roughness: 0.3,
+    });
+    const grenade = new THREE.Mesh(geometry, material);
+    grenade.position.copy(startPos);
+    this.scene.add(grenade);
+
+    // Grenade physics
+    const velocity = direction.clone().multiplyScalar(30); // Speed
+    const gravity = -15;
+    let time = 0;
+    const maxTime = 3; // Max flight time
+
+    const updateGrenade = () => {
+      time += 0.016; // ~60fps
+
+      // Apply velocity and gravity
+      grenade.position.add(velocity.clone().multiplyScalar(0.016));
+      velocity.y += gravity * 0.016;
+
+      // Check ground collision
+      if (grenade.position.y <= 0.2 || time >= maxTime) {
+        this.explodeGrenade(grenade.position.clone());
+        this.scene?.remove(grenade);
+        geometry.dispose();
+        material.dispose();
+        return;
+      }
+
+      // Check for entity collisions via raycast
+      const hitResult = {
+        intersectionPoint: new THREE.Vector3(),
+        intersectionNormal: new THREE.Vector3(),
+        collisionObject: undefined as unknown,
+      };
+
+      const rayStart = grenade.position.clone();
+      const rayEnd = rayStart.clone().add(velocity.clone().normalize().multiplyScalar(0.5));
+
+      const hit = AmmoHelper.CastRay(this.world, rayStart, rayEnd, hitResult, CollisionFilterGroups.AllFilter);
+
+      if (hit && hitResult.collisionObject) {
+        const entity = AmmoHelper.GetEntityFromCollisionObject(hitResult.collisionObject);
+        if (entity) {
+          // Hit an entity, explode
+          this.explodeGrenade(hitResult.intersectionPoint);
+          this.scene?.remove(grenade);
+          geometry.dispose();
+          material.dispose();
+          return;
+        }
+      }
+
+      requestAnimationFrame(updateGrenade);
+    };
+
+    requestAnimationFrame(updateGrenade);
+  }
+
+  private explodeGrenade(position: THREE.Vector3): void {
+    if (!this.scene) return;
+
+    const explosionRadius = this.config.explosionRadius;
+    const explosionDamage = this.config.explosionDamage;
+
+    // Create explosion visual
+    const explosionGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const explosionMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff6600,
+      transparent: true,
+      opacity: 1.0,
+    });
+    const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+    explosion.position.copy(position);
+    this.scene.add(explosion);
+
+    // Animate explosion
+    let scale = 1;
+    const expandExplosion = () => {
+      scale += 0.5;
+      explosion.scale.setScalar(scale);
+      explosionMaterial.opacity -= 0.1;
+
+      if (explosionMaterial.opacity <= 0) {
+        this.scene?.remove(explosion);
+        explosionGeometry.dispose();
+        explosionMaterial.dispose();
+        return;
+      }
+
+      requestAnimationFrame(expandExplosion);
+    };
+    requestAnimationFrame(expandExplosion);
+
+    // Deal explosion damage to all entities in radius
+    this.dealExplosionDamage(position, explosionRadius, explosionDamage);
+  }
+
+  private dealExplosionDamage(position: THREE.Vector3, radius: number, damage: number): void {
+    // Find all animals via SpawnManager
+    const spawnManager = this.FindEntity('SpawnManager');
+    if (!spawnManager) return;
+
+    const spawnComponent = spawnManager.GetComponent('SpawnManager') as {
+      GetRabbits(): { Position: THREE.Vector3; Broadcast: (msg: object) => void }[];
+      GetFoxes(): { Position: THREE.Vector3; Broadcast: (msg: object) => void }[];
+      GetTrexes(): { Position: THREE.Vector3; Broadcast: (msg: object) => void }[];
+      GetApatosauruses(): { Position: THREE.Vector3; Broadcast: (msg: object) => void }[];
+    } | undefined;
+
+    if (!spawnComponent) return;
+
+    const allAnimals = [
+      ...spawnComponent.GetRabbits(),
+      ...spawnComponent.GetFoxes(),
+      ...spawnComponent.GetTrexes(),
+      ...spawnComponent.GetApatosauruses(),
+    ];
+
+    for (const animal of allAnimals) {
+      const dist = animal.Position.distanceTo(position);
+      if (dist <= radius) {
+        // Damage falls off with distance
+        const falloff = 1 - (dist / radius);
+        const actualDamage = Math.round(damage * falloff);
+
+        if (actualDamage > 0) {
+          animal.Broadcast({
+            topic: 'hit',
+            from: this.parent!,
+            amount: actualDamage,
+            hitResult: { intersectionPoint: position, intersectionNormal: new THREE.Vector3(0, 1, 0) },
+          });
+        }
+      }
+    }
   }
 
   private triggerNukeEffects(): void {

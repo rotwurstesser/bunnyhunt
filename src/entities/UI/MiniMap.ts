@@ -9,6 +9,17 @@ interface TileManagerComponent {
     tiles: Array<{ entities: IEntity[] }>;
 }
 
+/** Animal controller interface for checking if dead */
+interface AnimalControllerLike {
+    isDead?: boolean;
+}
+
+/** Pickup component interface for checking if collected */
+interface PickupComponentLike {
+    collected?: boolean;
+    isCollected?: boolean;
+}
+
 export default class MiniMap extends Component {
     override name = 'MiniMap';
 
@@ -63,6 +74,23 @@ export default class MiniMap extends Component {
         return result;
     }
 
+    /** Filter out dead animals from entity list */
+    private filterAlive(entities: IEntity[], controllerName: string): IEntity[] {
+        return entities.filter(entity => {
+            const controller = entity.GetComponent(controllerName) as AnimalControllerLike | undefined;
+            return controller && !controller.isDead;
+        });
+    }
+
+    /** Get active pickups (not collected) */
+    private getActivePickups(componentName: string): IEntity[] {
+        const entities = this.getEntitiesWithComponent(componentName);
+        return entities.filter(entity => {
+            const pickup = entity.GetComponent(componentName) as PickupComponentLike | undefined;
+            return pickup && !pickup.collected && !pickup.isCollected;
+        });
+    }
+
     override Update(_deltaTime: number): void {
         if (!this.player) return;
 
@@ -96,22 +124,26 @@ export default class MiniMap extends Component {
         this.ctx.arc(this.size / 2, this.size / 2, 4, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Get animals from SpawnManager
+        // Get animals from SpawnManager (filter out dead ones)
         if (this.spawnManager) {
-            this.drawEntities(this.spawnManager.GetRabbits(), 'white', playerRot, playerPos, 3);
-            this.drawEntities(this.spawnManager.GetFoxes(), 'orange', playerRot, playerPos, 4);
-            this.drawEntities(this.spawnManager.GetTrexes(), 'red', playerRot, playerPos, 6);
-            this.drawEntities(this.spawnManager.GetApatosauruses(), 'cyan', playerRot, playerPos, 5);
+            this.drawEntities(this.filterAlive(this.spawnManager.GetRabbits(), 'RabbitController'), 'white', playerRot, playerPos, 3);
+            this.drawEntities(this.filterAlive(this.spawnManager.GetFoxes(), 'FoxController'), 'orange', playerRot, playerPos, 4);
+            this.drawEntities(this.filterAlive(this.spawnManager.GetTrexes(), 'TRexController'), 'red', playerRot, playerPos, 6);
+            this.drawEntities(this.filterAlive(this.spawnManager.GetApatosauruses(), 'ApatosaurusController'), 'cyan', playerRot, playerPos, 5);
         }
 
-        // Also get animals from TileManager (dynamically spawned)
-        this.drawEntities(this.getEntitiesWithComponent('RabbitController'), 'white', playerRot, playerPos, 3);
-        this.drawEntities(this.getEntitiesWithComponent('FoxController'), 'orange', playerRot, playerPos, 4);
-        this.drawEntities(this.getEntitiesWithComponent('TRexController'), 'red', playerRot, playerPos, 6);
-        this.drawEntities(this.getEntitiesWithComponent('ApatosaurusController'), 'cyan', playerRot, playerPos, 5);
+        // Also get animals from TileManager (dynamically spawned, filter dead)
+        this.drawEntities(this.filterAlive(this.getEntitiesWithComponent('RabbitController'), 'RabbitController'), 'white', playerRot, playerPos, 3);
+        this.drawEntities(this.filterAlive(this.getEntitiesWithComponent('FoxController'), 'FoxController'), 'orange', playerRot, playerPos, 4);
+        this.drawEntities(this.filterAlive(this.getEntitiesWithComponent('TRexController'), 'TRexController'), 'red', playerRot, playerPos, 6);
+        this.drawEntities(this.filterAlive(this.getEntitiesWithComponent('ApatosaurusController'), 'ApatosaurusController'), 'cyan', playerRot, playerPos, 5);
+
+        // Draw pickups (weapon pickups = yellow, ammo pickups = green)
+        this.drawEntities(this.getActivePickups('WeaponPickup'), 'yellow', playerRot, playerPos, 4, true);
+        this.drawEntities(this.getActivePickups('AmmoPickup'), '#00ff00', playerRot, playerPos, 3, true);
     }
 
-    private drawEntities(entities: IEntity[], color: string, playerRot: THREE.Quaternion, playerPos: THREE.Vector3, dotSize: number = 3) {
+    private drawEntities(entities: IEntity[], color: string, playerRot: THREE.Quaternion, playerPos: THREE.Vector3, dotSize: number = 3, isPickup: boolean = false) {
         this.ctx.fillStyle = color;
 
         // Player Coordinate System
@@ -145,9 +177,15 @@ export default class MiniMap extends Component {
             // Check range (Radius check)
             const distSq = (cx - this.size / 2) ** 2 + (cy - this.size / 2) ** 2;
             if (distSq < (this.size / 2 - 2) ** 2) {
-                this.ctx.beginPath();
-                this.ctx.arc(cx, cy, dotSize, 0, Math.PI * 2);
-                this.ctx.fill();
+                if (isPickup) {
+                    // Draw pickups as squares
+                    this.ctx.fillRect(cx - dotSize, cy - dotSize, dotSize * 2, dotSize * 2);
+                } else {
+                    // Draw animals as circles
+                    this.ctx.beginPath();
+                    this.ctx.arc(cx, cy, dotSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
             }
         }
     }

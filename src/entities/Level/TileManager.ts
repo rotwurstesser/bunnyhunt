@@ -99,7 +99,7 @@ export default class TileManager extends Component {
     // Pre-generate tile data without adding to scene yet
     const treeCount = 5 + Math.floor(Math.random() * 4);
     const rabbitCount = 1 + Math.floor(Math.random() * 2); // 1-2 rabbits
-    const foxCount = Math.random() < 0.5 ? 1 : 0; // 50% chance for fox
+    const foxCount = Math.random() < 0.2 ? 1 : 0; // 20% chance for fox (reduced by 60%)
 
     this.preparedTile = {
       x: tileX,
@@ -168,8 +168,8 @@ export default class TileManager extends Component {
       }
     }
 
-    // Add fox (1)
-    const foxCount = this.preparedTile?.foxCount || 1;
+    // Add fox (20% chance)
+    const foxCount = this.preparedTile?.foxCount ?? 0;
     for (let i = 0; i < foxCount; i++) {
       const entity = this.SpawnFox(centerX, centerZ);
       if (entity) {
@@ -308,7 +308,7 @@ export default class TileManager extends Component {
 
     const entity = new Entity();
     entity.SetName(`Rabbit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-    entity.SetPosition(new THREE.Vector3(x, 0.5, z));
+    entity.SetPosition(new THREE.Vector3(x, 0, z));
     entity.AddComponent(new RabbitController(modelClone, this.scene, this.physicsWorld));
 
     this.entityManager.Add(entity);
@@ -339,7 +339,7 @@ export default class TileManager extends Component {
 
     const entity = new Entity();
     entity.SetName(`Fox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-    entity.SetPosition(new THREE.Vector3(x, 0.5, z));
+    entity.SetPosition(new THREE.Vector3(x, 0, z));
     entity.AddComponent(new FoxController(modelClone, this.scene, this.physicsWorld));
 
     this.entityManager.Add(entity);
@@ -369,7 +369,7 @@ export default class TileManager extends Component {
 
     const entity = new Entity();
     entity.SetName(`TRex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-    entity.SetPosition(new THREE.Vector3(x, 0.5, z));
+    entity.SetPosition(new THREE.Vector3(x, 0, z));
     entity.AddComponent(new TRexController(modelClone, this.scene, this.physicsWorld));
 
     this.entityManager.Add(entity);
@@ -398,7 +398,7 @@ export default class TileManager extends Component {
 
     const entity = new Entity();
     entity.SetName(`Apatosaurus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-    entity.SetPosition(new THREE.Vector3(x, 0.5, z));
+    entity.SetPosition(new THREE.Vector3(x, 0, z));
     entity.AddComponent(new ApatosaurusController(modelClone, this.scene, this.physicsWorld));
 
     this.entityManager.Add(entity);

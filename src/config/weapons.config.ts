@@ -15,7 +15,7 @@ import type { ClipMatcher } from '../types/animation.types';
 export type WeaponFireType = 'hitscan' | 'projectile';
 
 /** Weapon tier keys */
-export type WeaponKey = 'rifle' | 'ak47' | 'shotgun' | 'gatling' | 'nuke';
+export type WeaponKey = 'rifle' | 'ak47' | 'shotgun' | 'gatling' | 'grenadeLauncher' | 'nuke';
 
 /** Weapon animation action names */
 export type WeaponAnimationName = 'idle' | 'shoot' | 'reload';
@@ -83,6 +83,12 @@ export interface WeaponConfig {
 
   /** Number of pellets per shot (1 for normal guns) */
   readonly pellets: number;
+
+  /** Explosion radius (0 for no explosion) */
+  readonly explosionRadius: number;
+
+  /** Explosion damage (0 for no explosion) */
+  readonly explosionDamage: number;
 }
 
 // ============================================================================
@@ -130,6 +136,8 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     glowColor: 0x88ff88,
     spread: 0.02,
     pellets: 1,
+    explosionRadius: 0,
+    explosionDamage: 0,
   },
 
   ak47: {
@@ -150,6 +158,8 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     glowColor: 0x44ff44,
     spread: 0.05,
     pellets: 1,
+    explosionRadius: 0,
+    explosionDamage: 0,
   },
 
   gatling: {
@@ -160,16 +170,18 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     ammoPerMag: 100,
     maxAmmo: 500,
     type: 'hitscan',
-    modelKey: 'assaultRifle', // Using AR model for minigun as best available option
-    modelScale: 0.15,
-    pickupScale: 0.07,
-    positionOffset: { x: 0.1, y: -0.15, z: -0.4 },
-    rotationOffset: { x: 0, y: 0, z: 0 },
+    modelKey: 'minigun',
+    modelScale: 0.008,
+    pickupScale: 0.004,
+    positionOffset: { x: 0.15, y: -0.2, z: -0.5 },
+    rotationOffset: { x: 0, y: Math.PI, z: 0 },
     muzzleFlashScale: 1.5,
     recoil: 0.005,
     glowColor: 0x4488ff,
     spread: 0.08,
     pellets: 1,
+    explosionRadius: 0,
+    explosionDamage: 0,
   },
 
   shotgun: {
@@ -180,16 +192,40 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     ammoPerMag: 8,
     maxAmmo: 40,
     type: 'hitscan',
-    modelKey: 'ak47', // Using AK model for shotgun for distinct look
-    modelScale: 0.14,
-    pickupScale: 0.06,
-    positionOffset: { x: 0.15, y: -0.12, z: -0.3 },
-    rotationOffset: { x: 0, y: Math.PI / 2, z: 0 },
+    modelKey: 'shotgun',
+    modelScale: 0.4,
+    pickupScale: 0.15,
+    positionOffset: { x: 0.2, y: -0.15, z: -0.4 },
+    rotationOffset: { x: 0, y: Math.PI, z: 0 },
     muzzleFlashScale: 2.0,
     recoil: 0.1,
     glowColor: 0xffaa00,
     spread: 0.15,
     pellets: 8,
+    explosionRadius: 0,
+    explosionDamage: 0,
+  },
+
+  grenadeLauncher: {
+    name: 'Grenade Launcher',
+    fireRate: 1.2,
+    damage: 10, // Direct hit
+    magAmmo: 6,
+    ammoPerMag: 6,
+    maxAmmo: 30,
+    type: 'projectile',
+    modelKey: 'grenadeLauncher',
+    modelScale: 0.3,
+    pickupScale: 0.12,
+    positionOffset: { x: 0.15, y: -0.12, z: -0.35 },
+    rotationOffset: { x: 0, y: Math.PI, z: 0 },
+    muzzleFlashScale: 1.5,
+    recoil: 0.08,
+    glowColor: 0xff8800,
+    spread: 0,
+    pellets: 1,
+    explosionRadius: 8, // 8 unit explosion radius
+    explosionDamage: 40, // 40 damage in explosion
   },
 
   nuke: {
@@ -210,6 +246,8 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     glowColor: 0xff4444,
     spread: 0,
     pellets: 1,
+    explosionRadius: 50, // Nuke has massive radius
+    explosionDamage: 9999, // Instant kill
   },
 } as const;
 
@@ -218,10 +256,10 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
 // ============================================================================
 
 /** Order of weapon unlocks */
-export const WEAPON_TIERS: readonly WeaponKey[] = ['rifle', 'ak47', 'shotgun', 'gatling', 'nuke'];
+export const WEAPON_TIERS: readonly WeaponKey[] = ['rifle', 'ak47', 'shotgun', 'gatling', 'grenadeLauncher', 'nuke'];
 
 /** Kill thresholds for each weapon tier */
-export const WEAPON_THRESHOLDS: readonly number[] = [0, 5, 15, 30, 50];
+export const WEAPON_THRESHOLDS: readonly number[] = [0, 5, 15, 30, 50, 75];
 
 // ============================================================================
 // ANIMATION CONFIG

@@ -43,6 +43,10 @@ import smg2 from '../public/models/weapons/smg2.glb';
 import muzzleFlash from './assets/muzzle_flash.glb';
 // Legacy AK47 for backwards compat
 import ak47 from './assets/guns/ak47/ak47.glb';
+// New weapons
+import minigun from './assets/minigun.glb';
+import shotgun from './assets/shotgun.glb';
+import grenadeLauncher from './assets/grenade_launcher.glb';
 // Shot sound
 import ak47Shot from './assets/sounds/ak47_shot.wav';
 
@@ -89,6 +93,9 @@ interface Assets {
   assaultRifle?: THREE.Object3D;
   smg2?: THREE.Object3D;
   ak47?: any;
+  minigun?: THREE.Object3D;
+  shotgun?: THREE.Object3D;
+  grenadeLauncher?: THREE.Object3D;
   muzzleFlash?: THREE.Object3D;
   ak47Shot?: AudioBuffer;
   trex?: THREE.Group;
@@ -271,6 +278,9 @@ class FPSGameApp {
     promises.push(this.AddAsset(assaultRifle, gltfLoader, 'assaultRifle'));
     promises.push(this.AddAsset(smg2, gltfLoader, 'smg2'));
     promises.push(this.AddAsset(ak47, gltfLoader, 'ak47')); // Legacy
+    promises.push(this.AddAsset(minigun, gltfLoader, 'minigun'));
+    promises.push(this.AddAsset(shotgun, gltfLoader, 'shotgun'));
+    promises.push(this.AddAsset(grenadeLauncher, gltfLoader, 'grenadeLauncher'));
     promises.push(this.AddAsset(muzzleFlash, gltfLoader, 'muzzleFlash'));
     promises.push(this.AddAsset(ak47Shot, audioLoader, 'ak47Shot'));
     // Ammo box
@@ -296,6 +306,9 @@ class FPSGameApp {
     this.assets['smg'] = this.assets['smg'].scene;
     this.assets['assaultRifle'] = this.assets['assaultRifle'].scene;
     this.assets['smg2'] = this.assets['smg2'].scene;
+    this.assets['minigun'] = this.assets['minigun'].scene;
+    this.assets['shotgun'] = this.assets['shotgun'].scene;
+    this.assets['grenadeLauncher'] = this.assets['grenadeLauncher'].scene;
 
     // Extract mutant anims
     this.SetAnim('idle', this.assets['idleAnim']);
@@ -355,6 +368,9 @@ class FPSGameApp {
       smg: this.assets['smg'],
       assaultRifle: this.assets['assaultRifle'],
       smg2: this.assets['smg2'],
+      minigun: this.assets['minigun'],
+      shotgun: this.assets['shotgun'],
+      grenadeLauncher: this.assets['grenadeLauncher'],
     };
     playerEntity.AddComponent(
       new Weapon(
