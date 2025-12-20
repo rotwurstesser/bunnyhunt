@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bio Sim 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            cursor: crosshair;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            pointer-events: none;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        #scoreBoard {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffaa00;
+            font-family: monospace;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 2px 2px 0px #000;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">Loading 3D Ecosystem...</div>
+    <div id="scoreBoard">SCORE: 0</div>
+    <div id="controls"
+        style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 4px; font-family: monospace; width: 250px;">
+        <h3 style="margin-top:0;">Visual Tweaks</h3>
+
+        <div><strong>Trees</strong></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Scale</span>
+            <input type="range" id="treeScale" min="0.1" max="10.0" step="0.1" value="0.8" style="width: 100px;">
+            <span id="val_treeScale" style="width:30px; text-align:right;">0.8</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Y-Off</span>
+            <input type="range" id="treeY" min="-5.0" max="5.0" step="0.1" value="0.0" style="width: 100px;">
+            <span id="val_treeY" style="width:30px; text-align:right;">0.0</span>
+        </div>
+        <hr style="border-color: #444; margin: 8px 0;">
+
+        <div><strong>Grass</strong></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Scale</span>
+            <input type="range" id="grassScale" min="0.1" max="5.0" step="0.1" value="0.6" style="width: 100px;">
+            <span id="val_grassScale" style="width:30px; text-align:right;">0.6</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Y-Off</span>
+            <input type="range" id="grassY" min="-2.0" max="2.0" step="0.1" value="0.0" style="width: 100px;">
+            <span id="val_grassY" style="width:30px; text-align:right;">0.0</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Density</span>
+            <input type="range" id="grassDensity" min="1" max="10" step="1" value="5" style="width: 100px;">
+            <span id="val_grassDensity" style="width:30px; text-align:right;">5</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Coverage</span>
+            <input type="range" id="grassCoverage" min="0.0" max="1.0" step="0.05" value="0.85" style="width: 100px;">
+            <span id="val_grassCoverage" style="width:30px; text-align:right;">0.85</span>
+        </div>
+        <hr style="border-color: #444; margin: 8px 0;">
+
+        <div><strong>Rabbits</strong></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Scale</span>
+            <input type="range" id="rabbitScale" min="0.1" max="3.0" step="0.1" value="0.6" style="width: 100px;">
+            <span id="val_rabbitScale" style="width:30px; text-align:right;">0.6</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Y-Off</span>
+            <input type="range" id="rabbitY" min="-2.0" max="2.0" step="0.1" value="0.2" style="width: 100px;">
+            <span id="val_rabbitY" style="width:30px; text-align:right;">0.2</span>
+        </div>
+        <hr style="border-color: #444; margin: 8px 0;">
+
+        <div><strong>Wolves</strong></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Scale</span>
+            <input type="range" id="wolfScale" min="0.1" max="5.0" step="0.1" value="0.3" style="width: 100px;">
+            <span id="val_wolfScale" style="width:30px; text-align:right;">0.3</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span>Y-Off</span>
+            <input type="range" id="wolfY" min="-2.0" max="2.0" step="0.1" value="0.7" style="width: 100px;">
+            <span id="val_wolfY" style="width:30px; text-align:right;">0.7</span>
+        </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
