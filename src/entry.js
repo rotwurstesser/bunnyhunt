@@ -35,9 +35,14 @@ import walkAnim from './assets/animations/mutant walking.fbx'
 import runAnim from './assets/animations/mutant run.fbx'
 import dieAnim from './assets/animations/mutant dying.fbx'
 
-//AK47 Model and textures
-import ak47 from './assets/guns/ak47/ak47.glb'
+// Weapon models
+import pistol from '../public/models/weapons/pistol.glb'
+import smg from '../public/models/weapons/smg.glb'
+import assaultRifle from '../public/models/weapons/assault_rifle.glb'
+import smg2 from '../public/models/weapons/smg2.glb'
 import muzzleFlash from './assets/muzzle_flash.glb'
+// Legacy AK47 for backwards compat
+import ak47 from './assets/guns/ak47/ak47.glb'
 //Shot sound
 import ak47Shot from './assets/sounds/ak47_shot.wav'
 
@@ -185,8 +190,12 @@ class FPSGameApp{
     promises.push(this.AddAsset(runAnim, fbxLoader, "runAnim"));
     promises.push(this.AddAsset(attackAnim, fbxLoader, "attackAnim"));
     promises.push(this.AddAsset(dieAnim, fbxLoader, "dieAnim"));
-    //AK47
-    promises.push(this.AddAsset(ak47, gltfLoader, "ak47"));
+    // Weapons
+    promises.push(this.AddAsset(pistol, gltfLoader, "pistol"));
+    promises.push(this.AddAsset(smg, gltfLoader, "smg"));
+    promises.push(this.AddAsset(assaultRifle, gltfLoader, "assaultRifle"));
+    promises.push(this.AddAsset(smg2, gltfLoader, "smg2"));
+    promises.push(this.AddAsset(ak47, gltfLoader, "ak47")); // Legacy
     promises.push(this.AddAsset(muzzleFlash, gltfLoader, "muzzleFlash"));
     promises.push(this.AddAsset(ak47Shot, audioLoader, "ak47Shot"));
     //Ammo box
@@ -206,6 +215,12 @@ class FPSGameApp{
     await this.PromiseProgress(promises, this.OnProgress);
 
     this.assets['muzzleFlash'] = this.assets['muzzleFlash'].scene;
+
+    // Extract weapon scenes
+    this.assets['pistol'] = this.assets['pistol'].scene;
+    this.assets['smg'] = this.assets['smg'].scene;
+    this.assets['assaultRifle'] = this.assets['assaultRifle'].scene;
+    this.assets['smg2'] = this.assets['smg2'].scene;
 
     //Extract mutant anims
     this.mutantAnims = {};
@@ -257,7 +272,14 @@ class FPSGameApp{
     playerEntity.SetName("Player");
     playerEntity.AddComponent(new PlayerPhysics(this.physicsWorld, Ammo));
     playerEntity.AddComponent(new PlayerControls(this.camera, this.scene));
-    playerEntity.AddComponent(new Weapon(this.camera, this.assets['ak47'].scene, this.assets['muzzleFlash'], this.physicsWorld, this.assets['ak47Shot'], this.listener));
+    // Pass all weapon assets to Weapon component
+    const weaponAssets = {
+        pistol: this.assets['pistol'],
+        smg: this.assets['smg'],
+        assaultRifle: this.assets['assaultRifle'],
+        smg2: this.assets['smg2']
+    };
+    playerEntity.AddComponent(new Weapon(this.camera, weaponAssets, this.assets['muzzleFlash'], this.physicsWorld, this.assets['ak47Shot'], this.listener));
     playerEntity.AddComponent(new PlayerHealth());
     playerEntity.SetPosition(new THREE.Vector3(0, 1.5, 0));
     this.entityManager.Add(playerEntity);

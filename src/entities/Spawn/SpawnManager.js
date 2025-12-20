@@ -59,10 +59,18 @@ export default class SpawnManager extends Component {
     }
 
     SpawnWeaponPickup(position, weaponKey) {
+        // Get weapon assets for pickup display
+        const weaponAssets = {
+            pistol: this.assets['pistol'],
+            smg: this.assets['smg'],
+            assaultRifle: this.assets['assaultRifle'],
+            smg2: this.assets['smg2']
+        };
+
         const entity = new Entity();
         entity.SetName(`WeaponDrop_${weaponKey}_${Date.now()}`);
         entity.SetPosition(position);
-        entity.AddComponent(new WeaponPickup(this.scene, weaponKey, position));
+        entity.AddComponent(new WeaponPickup(this.scene, weaponKey, position, weaponAssets));
 
         this.entityManager.Add(entity);
 

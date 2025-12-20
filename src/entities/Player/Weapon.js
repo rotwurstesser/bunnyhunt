@@ -4,17 +4,18 @@ import Input from '../../Input'
 import {Ammo, AmmoHelper, CollisionFilterGroups} from '../../AmmoLib'
 
 import WeaponFSM from './WeaponFSM';
-import { getWeaponConfig, WEAPON_TIERS, WEAPON_THRESHOLDS } from './WeaponConfig';
+import { getWeaponConfig, WEAPONS, WEAPON_TIERS, WEAPON_THRESHOLDS } from './WeaponConfig';
 
 
 export default class Weapon extends Component{
-    constructor(camera, model, flash, world, shotSoundBuffer, listener, nukeProjectileFactory = null){
+    constructor(camera, assets, flash, world, shotSoundBuffer, listener, nukeProjectileFactory = null){
         super();
         this.name = 'Weapon';
         this.camera = camera;
         this.world = world;
-        this.model = model;
+        this.assets = assets;  // All weapon model assets
         this.flash = flash;
+        this.currentModel = null; // Currently displayed weapon model
         this.animations = {};
         this.shoot = false;
         this.shootTimer = 0.0;
@@ -70,10 +71,11 @@ export default class Weapon extends Component{
     }
 
     SetMuzzleFlash(){
-        this.flash.position.set(-0.3, -0.5, 8.3);
+        // Position flash in front of weapon (will be re-attached in SwitchWeapon)
+        this.flash.position.set(0, 0, -0.5);
         this.flash.rotateY(Math.PI);
-        this.model.add(this.flash);
         this.flash.life = 0.0;
+        this.flash.scale.set(0.3, 0.3, 0.3);
 
         if (this.flash.children[0]?.material) {
             this.flash.children[0].material.blending = THREE.AdditiveBlending;
@@ -110,9 +112,49 @@ export default class Weapon extends Component{
         // Apply new weapon config
         this.ApplyWeaponConfig(weaponKey);
 
-        // Update model scale if needed
-        const scale = this.modelScale;
-        this.model.scale.set(scale, scale, scale);
+        // Remove old model from camera
+        if (this.currentModel) {
+            this.camera.remove(this.currentModel);
+        }
+
+        // Get new model from config
+        const config = WEAPONS[weaponKey];
+        const modelKey = config.modelKey;
+        const sourceModel = this.assets[modelKey];
+
+        if (sourceModel) {
+            // Clone the model
+            this.currentModel = sourceModel.clone();
+
+            // Apply scale
+            const scale = config.modelScale;
+            this.currentModel.scale.set(scale, scale, scale);
+
+            // Apply position offset (for FPS view without arms)
+            const pos = config.positionOffset;
+            this.currentModel.position.set(pos.x, pos.y, pos.z);
+
+            // Apply rotation offset
+            const rot = config.rotationOffset;
+            this.currentModel.rotation.set(rot.x, rot.y, rot.z);
+
+            // Setup shadows
+            this.currentModel.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            // Add to camera
+            this.camera.add(this.currentModel);
+
+            // Re-attach muzzle flash to new model
+            if (this.flash) {
+                this.flash.position.set(0, 0, -0.5);
+                this.currentModel.add(this.flash);
+            }
+        }
 
         // Reset state machine to idle
         if (this.stateMachine) {
@@ -128,31 +170,20 @@ export default class Weapon extends Component{
     }
 
     Initialize(){
-        const scene = this.model;
-        const scale = this.modelScale;
-        scene.scale.set(scale, scale, scale);
-        scene.position.set(0.04, -0.02, 0.0);
-        scene.setRotationFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(5), THREE.MathUtils.degToRad(185), 0));
-
-        scene.traverse(child=>{
-            if(!child.isSkinnedMesh){
-                return;
-            }
-
-            child.receiveShadow = true;
-        });
-
-        this.camera.add(scene);
-
-        this.SetAnimations();
+        // Setup muzzle flash first
         this.SetMuzzleFlash();
         this.SetSoundEffect();
 
+        // Initialize with starting weapon using SwitchWeapon
+        this.SwitchWeapon(this.currentWeaponKey);
+
+        // Create a simple state machine for weapon states
         this.stateMachine = new WeaponFSM(this);
         this.stateMachine.SetState('idle');
 
         this.uimanager = this.FindEntity("UIManager").GetComponent("UIManager");
         this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+        this.uimanager.SetWeaponName(this.weaponName);
 
         // Get scene reference for impact effects
         const level = this.FindEntity("Level");
@@ -393,13 +424,20 @@ export default class Weapon extends Component{
     }
 
     ApplyRecoil() {
-        // Simple visual recoil - kick the model up slightly
-        const originalY = this.model.position.y;
-        this.model.position.y += this.recoil;
+        if (!this.currentModel) return;
+
+        // Simple visual recoil - kick the model up and back slightly
+        const originalY = this.currentModel.position.y;
+        const originalZ = this.currentModel.position.z;
+        this.currentModel.position.y += this.recoil;
+        this.currentModel.position.z += this.recoil * 0.5;
 
         // Animate back to original position
         setTimeout(() => {
-            this.model.position.y = originalY;
+            if (this.currentModel) {
+                this.currentModel.position.y = originalY;
+                this.currentModel.position.z = originalZ;
+            }
         }, 50);
     }
 

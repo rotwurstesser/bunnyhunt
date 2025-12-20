@@ -265,10 +265,18 @@ export default class TileManager extends Component {
 
         const position = new THREE.Vector3(x, 0, z);
 
+        // Get weapon assets for pickup display
+        const weaponAssets = {
+            pistol: this.assets['pistol'],
+            smg: this.assets['smg'],
+            assaultRifle: this.assets['assaultRifle'],
+            smg2: this.assets['smg2']
+        };
+
         const entity = new Entity();
         entity.SetName(`WeaponPickup_${weaponKey}_${Date.now()}`);
         entity.SetPosition(position);
-        entity.AddComponent(new WeaponPickup(this.scene, weaponKey, position));
+        entity.AddComponent(new WeaponPickup(this.scene, weaponKey, position, weaponAssets));
 
         this.entityManager.Add(entity);
 

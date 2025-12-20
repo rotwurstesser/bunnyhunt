@@ -1,56 +1,75 @@
 // Weapon configuration for all weapon types
-// For now, all weapons use the AK-47 model with different stats
-// Later, we can add unique models for each weapon
+// Each weapon maps to a specific 3D model loaded from poly.pizza
 
 export const WEAPONS = {
     rifle: {
-        name: 'Hunting Rifle',
-        fireRate: 0.8,        // Slow but powerful
-        damage: 25,
-        magAmmo: 5,
-        ammoPerMag: 5,
-        maxAmmo: 30,
+        name: 'Pistol',
+        fireRate: 0.5,        // Medium speed
+        damage: 15,
+        magAmmo: 12,
+        ammoPerMag: 12,
+        maxAmmo: 60,
         type: 'hitscan',
-        modelScale: 0.05,
-        // Visual tweaks (can adjust per weapon when models are added)
-        muzzleFlashScale: 1.5,
-        recoil: 0.02
+        modelKey: 'pistol',   // Maps to assets['pistol']
+        modelScale: 0.15,
+        pickupScale: 0.08,    // Scale for pickup display
+        // Position offsets for FPS view (no arms)
+        positionOffset: { x: 0.15, y: -0.12, z: -0.25 },
+        rotationOffset: { x: 0, y: Math.PI, z: 0 },
+        muzzleFlashScale: 0.8,
+        recoil: 0.015,
+        glowColor: 0x88ff88   // Light green
     },
     ak47: {
-        name: 'AK-47',
-        fireRate: 0.1,        // Fast automatic
-        damage: 8,
-        magAmmo: 30,
-        ammoPerMag: 30,
-        maxAmmo: 150,
+        name: 'SMG',
+        fireRate: 0.08,       // Fast automatic
+        damage: 6,
+        magAmmo: 35,
+        ammoPerMag: 35,
+        maxAmmo: 175,
         type: 'hitscan',
-        modelScale: 0.05,
+        modelKey: 'smg',      // Maps to assets['smg']
+        modelScale: 0.12,
+        pickupScale: 0.06,
+        positionOffset: { x: 0.12, y: -0.1, z: -0.3 },
+        rotationOffset: { x: 0, y: Math.PI, z: 0 },
         muzzleFlashScale: 1.0,
-        recoil: 0.008
+        recoil: 0.006,
+        glowColor: 0x44ff44   // Green
     },
     gatling: {
-        name: 'Gatling Gun',
-        fireRate: 0.04,       // Very fast
-        damage: 4,
-        magAmmo: 200,
-        ammoPerMag: 200,
-        maxAmmo: 600,
+        name: 'Assault Rifle',
+        fireRate: 0.06,       // Very fast
+        damage: 5,
+        magAmmo: 45,
+        ammoPerMag: 45,
+        maxAmmo: 225,
         type: 'hitscan',
-        modelScale: 0.06,
-        muzzleFlashScale: 0.8,
-        recoil: 0.003
+        modelKey: 'assaultRifle', // Maps to assets['assaultRifle']
+        modelScale: 0.1,
+        pickupScale: 0.05,
+        positionOffset: { x: 0.1, y: -0.08, z: -0.35 },
+        rotationOffset: { x: 0, y: Math.PI, z: 0 },
+        muzzleFlashScale: 1.2,
+        recoil: 0.004,
+        glowColor: 0x4488ff   // Blue
     },
     nuke: {
-        name: 'NUKE',
-        fireRate: 3.0,        // Very slow
-        damage: 9999,
-        magAmmo: 1,
-        ammoPerMag: 1,
-        maxAmmo: 1,
-        type: 'projectile',
-        modelScale: 0.05,
-        muzzleFlashScale: 2.0,
-        recoil: 0.1
+        name: 'Heavy SMG',
+        fireRate: 0.03,       // Extremely fast
+        damage: 3,
+        magAmmo: 100,
+        ammoPerMag: 100,
+        maxAmmo: 400,
+        type: 'hitscan',      // Changed to hitscan for better gameplay
+        modelKey: 'smg2',     // Maps to assets['smg2']
+        modelScale: 0.12,
+        pickupScale: 0.06,
+        positionOffset: { x: 0.12, y: -0.1, z: -0.3 },
+        rotationOffset: { x: 0, y: Math.PI, z: 0 },
+        muzzleFlashScale: 0.6,
+        recoil: 0.002,
+        glowColor: 0xff4444   // Red
     }
 };
 
