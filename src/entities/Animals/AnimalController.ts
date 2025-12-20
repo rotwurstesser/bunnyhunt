@@ -23,6 +23,7 @@
 
 import * as THREE from 'three';
 import Component from '../../core/Component';
+import { Entity } from '../../core/Entity';
 import { FiniteStateMachine, type IState } from '../../core/FiniteStateMachine';
 import { AnimationController } from '../../systems/AnimationController';
 import { AmmoHelper, Ammo, CollisionFilterGroups } from '../../core/AmmoLib';
@@ -440,8 +441,18 @@ export abstract class AnimalController<TState extends string> extends Component 
    */
   protected showDamageEffects(amount: number): void {
     // Show damage text
-    const damageText = new DamageText(this.model.position, amount, this.scene);
-    damageText.Initialize();
+    const textEntity = new Entity();
+    textEntity.SetPosition(this.model.position);
+    const damageText = new DamageText(new THREE.Vector3(0, 0, 0), amount, this.scene); // Position relative to entity
+    textEntity.AddComponent(damageText);
+
+    // Add to manager via parent's manager
+    if (this.parent && this.parent.parent) {
+      this.parent.parent.Add(textEntity);
+    } else {
+      // Fallback or error
+      damageText.Initialize(); // Force init but it won't update
+    }
 
     // Flash red
     this.model.traverse((child) => {

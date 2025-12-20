@@ -57,7 +57,7 @@ export const RABBIT_ENTITY_CONFIG: AnimalConfig = {
   speed: 8.0,
   baseScale: 0.5,
   colliderRadius: 1.5,
-  colliderYOffset: 0.3,
+  colliderYOffset: 1.5, // Matches radius to place mesh at feet level
 };
 
 /**

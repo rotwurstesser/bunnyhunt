@@ -44,6 +44,7 @@ interface UIManagerComponent {
   SetHealth(health: number): void;
   SetWeaponName(name: string): void;
   ShowUpgradeNotification(name: string): void;
+  SetWeaponList(owned: string[], current: string): void;
 }
 
 /** Asset dictionary for weapon models */
@@ -74,6 +75,15 @@ export default class Weapon extends Component {
 
   /** Current weapon key */
   private currentWeaponKey: WeaponKey = 'rifle';
+
+  /** Owned weapons list */
+  private ownedWeapons: WeaponKey[] = ['rifle'];
+
+  /** Current weapon index in owned list */
+  private currentWeaponIndex: number = 0;
+
+  /** Weapon ammo storage */
+  private weaponAmmo: Record<string, { mag: number; reserve: number }> = {};
 
   /** Current weapon tier (0-3) */
   private currentTier: number = 0;
@@ -159,6 +169,12 @@ export default class Weapon extends Component {
     this.config = getWeaponConfig('rifle');
     this.magAmmo = this.config.magAmmo;
     this.ammo = this.config.maxAmmo;
+
+    // Init ammo storage
+    Object.keys(WEAPONS).forEach((k) => {
+      const conf = WEAPONS[k as WeaponKey];
+      this.weaponAmmo[k] = { mag: conf.magAmmo, reserve: conf.maxAmmo };
+    });
   }
 
   // ============================================================================
@@ -238,11 +254,16 @@ export default class Weapon extends Component {
       this.shoot = false;
     });
 
-    Input.AddKeyDownListner((e: KeyboardEvent) => {
+    Input.AddKeyDownListener((e: KeyboardEvent) => {
       if (e.repeat) return;
       if (e.code === 'KeyR') {
         this.reload();
       }
+    });
+
+    Input.AddWheelListener((e: WheelEvent) => {
+      if (e.deltaY > 0) this.nextWeapon();
+      else if (e.deltaY < 0) this.prevWeapon();
     });
   }
 
@@ -274,14 +295,45 @@ export default class Weapon extends Component {
   // WEAPON SWITCHING
   // ============================================================================
 
+  private nextWeapon(): void {
+    let idx = this.currentWeaponIndex + 1;
+    if (idx >= this.ownedWeapons.length) idx = 0;
+    this.switchWeaponByIndex(idx);
+  }
+
+  private prevWeapon(): void {
+    let idx = this.currentWeaponIndex - 1;
+    if (idx < 0) idx = this.ownedWeapons.length - 1;
+    this.switchWeaponByIndex(idx);
+  }
+
+  private switchWeaponByIndex(index: number): void {
+    if (index === this.currentWeaponIndex && this.currentModel) return;
+    this.currentWeaponIndex = index;
+    this.switchWeapon(this.ownedWeapons[index]);
+  }
+
+  private saveCurrentAmmo(): void {
+    this.weaponAmmo[this.currentWeaponKey] = {
+      mag: this.magAmmo,
+      reserve: this.ammo
+    };
+  }
+
   private applyWeaponConfig(weaponKey: WeaponKey): void {
     this.config = getWeaponConfig(weaponKey);
     this.currentWeaponKey = weaponKey;
-    this.magAmmo = this.config.magAmmo;
-    this.ammo = this.config.maxAmmo;
+
+    // Load ammo state
+    const ammoState = this.weaponAmmo[weaponKey];
+    this.magAmmo = ammoState.mag;
+    this.ammo = ammoState.reserve;
   }
 
   private switchWeapon(weaponKey: WeaponKey): void {
+    // Save current ammo
+    this.saveCurrentAmmo();
+
     // Stop any current action
     this.shoot = false;
     this.reloading = false;
@@ -333,6 +385,7 @@ export default class Weapon extends Component {
       if (this.flash) {
         this.flash.position.set(0, 0, -0.5);
         this.currentModel.add(this.flash);
+        // Adjust flash size/pos per weapon? Maybe handled in update
       }
     }
 
@@ -345,6 +398,7 @@ export default class Weapon extends Component {
     if (this.uimanager) {
       this.uimanager.SetAmmo(this.magAmmo, this.ammo);
       this.uimanager.SetWeaponName(this.config.name);
+      this.uimanager.SetWeaponList(this.ownedWeapons, this.currentWeaponKey);
       this.uimanager.ShowUpgradeNotification(this.config.name);
     }
   }
@@ -359,18 +413,40 @@ export default class Weapon extends Component {
   };
 
   private onWeaponUpgrade = (msg: WeaponUpgradeEvent): void => {
+    // Disable auto-switch for upgrade, just unlock?
+    // User logic: "Picking up weapon adds it".
+    // This upgrade logic matches kills.
+    // Let's just unlock it.
     const newTier = msg.tier;
-    if (newTier > this.currentTier && newTier < WEAPON_TIERS.length) {
-      this.currentTier = newTier;
-      const newWeaponKey = WEAPON_TIERS[newTier];
-      this.switchWeapon(newWeaponKey);
+    if (newTier < WEAPON_TIERS.length) {
+      const key = WEAPON_TIERS[newTier];
+      if (!this.ownedWeapons.includes(key)) {
+        this.ownedWeapons.push(key);
+        this.uimanager?.ShowUpgradeNotification(`Unlocked ${key}`);
+      }
     }
   };
 
   private onWeaponPickup = (msg: WeaponPickupEvent): void => {
     const newWeaponKey = msg.weaponKey as WeaponKey;
-    if (newWeaponKey && newWeaponKey !== this.currentWeaponKey) {
-      this.switchWeapon(newWeaponKey);
+    if (newWeaponKey) {
+      if (!this.ownedWeapons.includes(newWeaponKey)) {
+        this.ownedWeapons.push(newWeaponKey);
+        // Switch to it?
+        this.currentWeaponIndex = this.ownedWeapons.length - 1;
+        this.switchWeapon(newWeaponKey);
+      } else {
+        // Add ammo
+        const conf = WEAPONS[newWeaponKey];
+        const current = this.weaponAmmo[newWeaponKey];
+        current.reserve = Math.min(current.reserve + conf.magAmmo * 2, conf.maxAmmo);
+
+        // Update UI if current
+        if (this.currentWeaponKey === newWeaponKey) {
+          this.ammo = current.reserve;
+          this.uimanager?.SetAmmo(this.magAmmo, this.ammo);
+        }
+      }
     }
   };
 
@@ -432,7 +508,14 @@ export default class Weapon extends Component {
       this.magAmmo = Math.max(0, this.magAmmo - 1);
       this.uimanager?.SetAmmo(this.magAmmo, this.ammo);
 
-      this.raycast();
+      // Shotgun spread
+      const pellets = this.config.pellets || 1;
+      const spread = this.config.spread || 0;
+
+      for (let i = 0; i < pellets; i++) {
+        this.raycast(spread);
+      }
+
       this.Broadcast({ topic: 'weapon_shot', weapon: this.currentWeaponKey });
 
       if (this.shotSound) {
@@ -446,16 +529,37 @@ export default class Weapon extends Component {
     this.shootTimer = Math.max(0.0, this.shootTimer - deltaTime);
   }
 
-  private raycast(): void {
+  private raycast(spread: number = 0): void {
     try {
       const start = new THREE.Vector3(0.0, 0.0, -1.0);
-      start.unproject(this.camera);
-      const end = new THREE.Vector3(0.0, 0.0, 1.0);
-      end.unproject(this.camera);
+
+      // Apply spread to start vector before unprojection?
+      // No, unproject handles screen to world.
+      // Spread should be applied to the direction.
+
+      // Get forward direction
+      const forward = new THREE.Vector3(0, 0, -1);
+      forward.applyQuaternion(this.camera.quaternion);
+
+      // Apply spread
+      if (spread > 0) {
+        const spreadX = (Math.random() - 0.5) * spread;
+        const spreadY = (Math.random() - 0.5) * spread;
+        const spreadZ = (Math.random() - 0.5) * spread;
+        forward.x += spreadX;
+        forward.y += spreadY;
+        forward.z += spreadZ;
+        forward.normalize();
+      }
+
+      const startPos = this.camera.position.clone();
+      // start.unproject(this.camera); // This was previous logic for 2D, but we want forward
+
+      const endPos = startPos.clone().add(forward.multiplyScalar(100)); // 100 range
 
       const collisionMask = CollisionFilterGroups.AllFilter;
 
-      const hit = AmmoHelper.CastRay(this.world, start, end, this.hitResult, collisionMask);
+      const hit = AmmoHelper.CastRay(this.world, startPos, endPos, this.hitResult, collisionMask);
 
       if (hit) {
         const collisionObj = this.hitResult.collisionObject;

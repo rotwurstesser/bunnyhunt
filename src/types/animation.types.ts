@@ -29,7 +29,7 @@ export type AnimalType = 'rabbit' | 'fox' | 'mutant';
 /**
  * Weapon keys for type-safe weapon identification.
  */
-export type WeaponKey = 'rifle' | 'ak47' | 'gatling' | 'nuke';
+export type WeaponKey = 'rifle' | 'ak47' | 'shotgun' | 'gatling' | 'nuke';
 
 /**
  * Animation source types - determines how animations are loaded.

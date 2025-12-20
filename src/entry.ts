@@ -69,6 +69,7 @@ import LevelBulletDecals from './entities/Level/BulletDecals';
 import PlayerHealth from './entities/Player/PlayerHealth';
 import GameManager from './entities/Game/GameManager';
 import SpawnManager from './entities/Spawn/SpawnManager';
+import MiniMap from './entities/UI/MiniMap';
 
 interface Assets {
   rabbit?: any;
@@ -378,6 +379,7 @@ class FPSGameApp {
     const uimanagerEntity = new Entity();
     uimanagerEntity.SetName('UIManager');
     uimanagerEntity.AddComponent(new UIManager());
+    uimanagerEntity.AddComponent(new MiniMap());
     this.entityManager.Add(uimanagerEntity);
 
     // Game Manager for score tracking and weapon progression

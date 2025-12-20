@@ -102,6 +102,13 @@ class Input {
   }
 
   /**
+   * Add a wheel event listener.
+   */
+  AddWheelListener(callback: (event: WheelEvent) => void): void {
+    this._addEventListener(document.body, 'wheel', callback as EventListener);
+  }
+
+  /**
    * Internal keydown handler.
    */
   private _onKeyDown = (event: KeyboardEvent): void => {

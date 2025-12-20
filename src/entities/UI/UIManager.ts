@@ -72,6 +72,24 @@ export default class UIManager extends Component {
   // ============================================================================
 
   /**
+   * Update weapon list display
+   */
+  SetWeaponList(owned: string[], current: string): void {
+    const container = document.getElementById('weapon_list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    owned.forEach(w => {
+      const div = document.createElement('div');
+      div.className = 'weapon-item';
+      if (w === current) div.className += ' active';
+      div.innerText = w.toUpperCase();
+      container.appendChild(div);
+    });
+  }
+
+  /**
    * Show weapon upgrade notification.
    * Auto-hides after 3 seconds.
    */

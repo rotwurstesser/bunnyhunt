@@ -55,6 +55,31 @@
       height: 100%;
     }
 
+    #weapon_list {
+      position: absolute;
+      top: 2%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    .weapon-item {
+      padding: 5px 10px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid #555;
+      color: #aaa;
+      font-size: 1.2em;
+    }
+
+    .weapon-item.active {
+      border-color: #0f0;
+      color: #fff;
+      background: rgba(0, 50, 0, 0.6);
+      box-shadow: 0 0 10px #0f0;
+    }
+
     #game_hud {
       visibility: hidden;
     }

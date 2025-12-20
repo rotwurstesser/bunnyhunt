@@ -73,6 +73,14 @@ export default class SpawnManager extends Component {
   /** Active fox entities */
   private foxes: Entity[] = [];
 
+  public GetRabbits(): Entity[] {
+    return this.rabbits;
+  }
+
+  public GetFoxes(): Entity[] {
+    return this.foxes;
+  }
+
   /** Pending respawns */
   private respawnQueue: RespawnItem[] = [];
 
@@ -270,7 +278,7 @@ export default class SpawnManager extends Component {
 
   private cleanupEntity(entity: Entity): void {
     const controller = entity.GetComponent('RabbitController') ??
-                      entity.GetComponent('FoxController');
+      entity.GetComponent('FoxController');
 
     if (controller && typeof (controller as { Cleanup?: () => void }).Cleanup === 'function') {
       (controller as { Cleanup: () => void }).Cleanup();
@@ -332,7 +340,7 @@ export default class SpawnManager extends Component {
     const allAnimals = [...this.rabbits, ...this.foxes];
     allAnimals.forEach((animal) => {
       const controller = animal.GetComponent('RabbitController') ??
-                        animal.GetComponent('FoxController');
+        animal.GetComponent('FoxController');
       if (controller && !(controller as { isDead?: boolean }).isDead) {
         (controller as { TakeHit: (msg: { amount: number }) => void }).TakeHit({ amount: 9999 });
       }

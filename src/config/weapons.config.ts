@@ -15,7 +15,7 @@ import type { ClipMatcher } from '../types/animation.types';
 export type WeaponFireType = 'hitscan' | 'projectile';
 
 /** Weapon tier keys */
-export type WeaponKey = 'rifle' | 'ak47' | 'gatling' | 'nuke';
+export type WeaponKey = 'rifle' | 'ak47' | 'shotgun' | 'gatling' | 'nuke';
 
 /** Weapon animation action names */
 export type WeaponAnimationName = 'idle' | 'shoot' | 'reload';
@@ -77,6 +77,12 @@ export interface WeaponConfig {
 
   /** Glow color for UI/effects */
   readonly glowColor: number;
+
+  /** Shot spread (0 for perfect accuracy) */
+  readonly spread: number;
+
+  /** Number of pellets per shot (1 for normal guns) */
+  readonly pellets: number;
 }
 
 // ============================================================================
@@ -122,6 +128,8 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     muzzleFlashScale: 0.8,
     recoil: 0.015,
     glowColor: 0x88ff88,
+    spread: 0.02,
+    pellets: 1,
   },
 
   ak47: {
@@ -140,42 +148,68 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
     muzzleFlashScale: 1.0,
     recoil: 0.006,
     glowColor: 0x44ff44,
+    spread: 0.05,
+    pellets: 1,
   },
 
   gatling: {
-    name: 'Assault Rifle',
-    fireRate: 0.08,
-    damage: 1.6,
-    magAmmo: 45,
-    ammoPerMag: 45,
-    maxAmmo: 225,
+    name: 'Minigun',
+    fireRate: 0.03,
+    damage: 1.2,
+    magAmmo: 100,
+    ammoPerMag: 100,
+    maxAmmo: 500,
     type: 'hitscan',
-    modelKey: 'assaultRifle',
-    modelScale: 0.1,
-    pickupScale: 0.05,
-    positionOffset: { x: 0.1, y: -0.08, z: -0.35 },
+    modelKey: 'assaultRifle', // Using AR model for minigun as best available option
+    modelScale: 0.15,
+    pickupScale: 0.07,
+    positionOffset: { x: 0.1, y: -0.15, z: -0.4 },
     rotationOffset: { x: 0, y: 0, z: 0 },
-    muzzleFlashScale: 1.2,
-    recoil: 0.004,
+    muzzleFlashScale: 1.5,
+    recoil: 0.005,
     glowColor: 0x4488ff,
+    spread: 0.08,
+    pellets: 1,
+  },
+
+  shotgun: {
+    name: 'Shotgun',
+    fireRate: 0.8,
+    damage: 2.5, // x 8 pellets = 20 dmg
+    magAmmo: 8,
+    ammoPerMag: 8,
+    maxAmmo: 40,
+    type: 'hitscan',
+    modelKey: 'ak47', // Using AK model for shotgun for distinct look
+    modelScale: 0.14,
+    pickupScale: 0.06,
+    positionOffset: { x: 0.15, y: -0.12, z: -0.3 },
+    rotationOffset: { x: 0, y: Math.PI / 2, z: 0 },
+    muzzleFlashScale: 2.0,
+    recoil: 0.1,
+    glowColor: 0xffaa00,
+    spread: 0.15,
+    pellets: 8,
   },
 
   nuke: {
-    name: 'Heavy SMG',
-    fireRate: 0.04,
-    damage: 1,
-    magAmmo: 100,
-    ammoPerMag: 100,
-    maxAmmo: 400,
-    type: 'hitscan',
+    name: 'Nuke Launcher',
+    fireRate: 1.0,
+    damage: 100,
+    magAmmo: 1,
+    ammoPerMag: 1,
+    maxAmmo: 10,
+    type: 'projectile',
     modelKey: 'smg2',
     modelScale: 0.12,
     pickupScale: 0.06,
     positionOffset: { x: 0.12, y: -0.1, z: -0.3 },
     rotationOffset: { x: 0, y: 0, z: 0 },
     muzzleFlashScale: 0.6,
-    recoil: 0.002,
+    recoil: 0.05,
     glowColor: 0xff4444,
+    spread: 0,
+    pellets: 1,
   },
 } as const;
 
@@ -184,10 +218,10 @@ export const WEAPONS: Record<WeaponKey, WeaponConfig> = {
 // ============================================================================
 
 /** Order of weapon unlocks */
-export const WEAPON_TIERS: readonly WeaponKey[] = ['rifle', 'ak47', 'gatling', 'nuke'];
+export const WEAPON_TIERS: readonly WeaponKey[] = ['rifle', 'ak47', 'shotgun', 'gatling', 'nuke'];
 
 /** Kill thresholds for each weapon tier */
-export const WEAPON_THRESHOLDS: readonly number[] = [0, 3, 10, 20];
+export const WEAPON_THRESHOLDS: readonly number[] = [0, 5, 15, 30, 50];
 
 // ============================================================================
 // ANIMATION CONFIG
