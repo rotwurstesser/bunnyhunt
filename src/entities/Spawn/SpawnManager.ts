@@ -10,6 +10,8 @@ import Component from '../../core/Component';
 import Entity from '../../core/Entity';
 import RabbitController from '../Animals/RabbitController';
 import FoxController from '../Animals/FoxController';
+import TRexController from '../Animals/TRexController';
+import ApatosaurusController from '../Animals/ApatosaurusController';
 import NukeProjectile from '../Player/NukeProjectile';
 import WeaponPickup from '../Pickups/WeaponPickup';
 import type { AnimalDiedEvent, NukeFiredEvent, NukeDetonatedEvent, FoxWeaponDropEvent } from '../../types/events.types';
@@ -32,7 +34,7 @@ interface EntityManagerInterface {
 
 /** Respawn queue item */
 interface RespawnItem {
-  type: 'rabbit' | 'fox';
+  type: 'rabbit' | 'fox' | 'trex' | 'apatosaurus';
   timer: number;
   position: THREE.Vector3;
 }
@@ -61,7 +63,10 @@ export default class SpawnManager extends Component {
 
   private readonly maxRabbits: number = 12;
   private readonly maxFoxes: number = 2;
+  private readonly maxTrex: number = 1;
+  private readonly maxApatosaurus: number = 2;
   private readonly respawnCooldown: number = 5;
+  private readonly trexSpawnChance: number = 0.25; // 25% chance
 
   // ============================================================================
   // STATE
@@ -80,6 +85,12 @@ export default class SpawnManager extends Component {
   public GetFoxes(): Entity[] {
     return this.foxes;
   }
+
+  /** Active T-Rex entities */
+  private trexes: Entity[] = [];
+
+  /** Active Apatosaurus entities */
+  private apatosauruses: Entity[] = [];
 
   /** Pending respawns */
   private respawnQueue: RespawnItem[] = [];
@@ -242,6 +253,94 @@ export default class SpawnManager extends Component {
   }
 
   // ============================================================================
+  // T-REX SPAWNING
+  // ============================================================================
+
+  SpawnTRex(): Entity | null {
+    if (this.trexes.length >= this.maxTrex) return null;
+
+    const position = this.GetRandomSpawnPosition();
+    const entity = this.createTRexEntity(position);
+
+    if (entity && this.entityManager) {
+      this.entityManager.Add(entity);
+
+      if (this.initialSpawnComplete) {
+        this.initializeEntity(entity);
+      }
+
+      this.trexes.push(entity);
+    }
+
+    return entity;
+  }
+
+  private createTRexEntity(position: THREE.Vector3): Entity | null {
+    const trexModel = this.assets['trex'];
+    if (!trexModel) {
+      console.error('T-Rex model not loaded');
+      return null;
+    }
+
+    const modelClone = SkeletonUtils.clone(trexModel) as THREE.Object3D;
+
+    if (trexModel.animations && trexModel.animations.length > 0) {
+      (modelClone as { animations?: THREE.AnimationClip[] }).animations = trexModel.animations;
+    }
+
+    const entity = new Entity();
+    entity.SetName(`TRex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    entity.SetPosition(position);
+    entity.AddComponent(new TRexController(modelClone, this.scene, this.physicsWorld));
+
+    return entity;
+  }
+
+  // ============================================================================
+  // APATOSAURUS SPAWNING
+  // ============================================================================
+
+  SpawnApatosaurus(): Entity | null {
+    if (this.apatosauruses.length >= this.maxApatosaurus) return null;
+
+    const position = this.GetRandomSpawnPosition();
+    const entity = this.createApatosaurusEntity(position);
+
+    if (entity && this.entityManager) {
+      this.entityManager.Add(entity);
+
+      if (this.initialSpawnComplete) {
+        this.initializeEntity(entity);
+      }
+
+      this.apatosauruses.push(entity);
+    }
+
+    return entity;
+  }
+
+  private createApatosaurusEntity(position: THREE.Vector3): Entity | null {
+    const apatosaurusModel = this.assets['apatosaurus'];
+    if (!apatosaurusModel) {
+      console.error('Apatosaurus model not loaded');
+      return null;
+    }
+
+    const modelClone = SkeletonUtils.clone(apatosaurusModel) as THREE.Object3D;
+
+    if (apatosaurusModel.animations && apatosaurusModel.animations.length > 0) {
+      (modelClone as { animations?: THREE.AnimationClip[] }).animations = apatosaurusModel.animations;
+    }
+
+    const entity = new Entity();
+    entity.SetName(`Apatosaurus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    entity.SetPosition(position);
+    entity.AddComponent(new ApatosaurusController(modelClone, this.scene, this.physicsWorld));
+
+    return entity;
+  }
+
+  // ============================================================================
   // WEAPON PICKUP
   // ============================================================================
 
@@ -278,7 +377,9 @@ export default class SpawnManager extends Component {
 
   private cleanupEntity(entity: Entity): void {
     const controller = entity.GetComponent('RabbitController') ??
-      entity.GetComponent('FoxController');
+      entity.GetComponent('FoxController') ??
+      entity.GetComponent('TRexController') ??
+      entity.GetComponent('ApatosaurusController');
 
     if (controller && typeof (controller as { Cleanup?: () => void }).Cleanup === 'function') {
       (controller as { Cleanup: () => void }).Cleanup();
@@ -297,11 +398,15 @@ export default class SpawnManager extends Component {
       this.rabbits = this.rabbits.filter((r) => r !== msg.entity);
     } else if (msg.type === 'fox') {
       this.foxes = this.foxes.filter((f) => f !== msg.entity);
+    } else if (msg.type === 'trex') {
+      this.trexes = this.trexes.filter((t) => t !== msg.entity);
+    } else if (msg.type === 'apatosaurus') {
+      this.apatosauruses = this.apatosauruses.filter((a) => a !== msg.entity);
     }
 
     // Queue respawn
     this.respawnQueue.push({
-      type: msg.type as 'rabbit' | 'fox',
+      type: msg.type as 'rabbit' | 'fox' | 'trex' | 'apatosaurus',
       timer: this.respawnCooldown,
       position: msg.position,
     });
@@ -337,10 +442,12 @@ export default class SpawnManager extends Component {
   };
 
   private onNukeDetonated = (_msg: NukeDetonatedEvent): void => {
-    const allAnimals = [...this.rabbits, ...this.foxes];
+    const allAnimals = [...this.rabbits, ...this.foxes, ...this.trexes, ...this.apatosauruses];
     allAnimals.forEach((animal) => {
       const controller = animal.GetComponent('RabbitController') ??
-        animal.GetComponent('FoxController');
+        animal.GetComponent('FoxController') ??
+        animal.GetComponent('TRexController') ??
+        animal.GetComponent('ApatosaurusController');
       if (controller && !(controller as { isDead?: boolean }).isDead) {
         (controller as { TakeHit: (msg: { amount: number }) => void }).TakeHit({ amount: 9999 });
       }
@@ -361,7 +468,16 @@ export default class SpawnManager extends Component {
         if (item.type === 'rabbit') {
           this.SpawnRabbit();
         } else if (item.type === 'fox') {
-          this.SpawnFox();
+          // 25% chance to spawn T-Rex instead of fox
+          if (Math.random() < this.trexSpawnChance && this.trexes.length < this.maxTrex) {
+            this.SpawnTRex();
+          } else {
+            this.SpawnFox();
+          }
+        } else if (item.type === 'trex') {
+          this.SpawnTRex();
+        } else if (item.type === 'apatosaurus') {
+          this.SpawnApatosaurus();
         }
         this.respawnQueue.splice(i, 1);
       }

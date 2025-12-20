@@ -3,6 +3,8 @@ import { Component } from '../../core/Component';
 import { Entity } from '../../core/Entity';
 import RabbitController from '../Animals/RabbitController';
 import FoxController from '../Animals/FoxController';
+import TRexController from '../Animals/TRexController';
+import ApatosaurusController from '../Animals/ApatosaurusController';
 import WeaponPickup from '../Pickups/WeaponPickup';
 import AmmoPickup from '../Pickups/AmmoPickup';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils';
@@ -23,6 +25,8 @@ interface PreparedTileData {
   treeCount: number;
   rabbitCount: number;
   foxCount: number;
+  trexCount: number;
+  apatosaurusCount: number;
 }
 
 interface TreeObject {
@@ -35,6 +39,8 @@ interface TreeObject {
 interface Assets {
   rabbit?: { scene?: THREE.Object3D; animations?: THREE.AnimationClip[] };
   fox?: { scene?: THREE.Object3D; animations?: THREE.AnimationClip[] };
+  trex?: THREE.Group & { animations?: THREE.AnimationClip[] };
+  apatosaurus?: THREE.Group & { animations?: THREE.AnimationClip[] };
   pistol?: THREE.Object3D;
   smg?: THREE.Object3D;
   assaultRifle?: THREE.Object3D;
@@ -91,9 +97,9 @@ export default class TileManager extends Component {
 
   PrepareTile(tileX: number, tileZ: number): void {
     // Pre-generate tile data without adding to scene yet
-    const treeCount = 5 + Math.floor(Math.random() * 4); // 5-8 trees
-    const rabbitCount = 3;
-    const foxCount = 1;
+    const treeCount = 5 + Math.floor(Math.random() * 4);
+    const rabbitCount = 1 + Math.floor(Math.random() * 2); // 1-2 rabbits
+    const foxCount = Math.random() < 0.5 ? 1 : 0; // 50% chance for fox
 
     this.preparedTile = {
       x: tileX,
@@ -166,6 +172,28 @@ export default class TileManager extends Component {
     const foxCount = this.preparedTile?.foxCount || 1;
     for (let i = 0; i < foxCount; i++) {
       const entity = this.SpawnFox(centerX, centerZ);
+      if (entity) {
+        tile.entities.push(entity);
+      }
+    }
+
+    // Add T-Rex (5% chance per tile, max 1)
+    // Add T-Rex (5% chance, max 2 global)
+    const currentTrexCount = this.GetEntityCount('TRexController');
+    const trexSpawn = this.preparedTile?.trexCount ?? (Math.random() < 0.05 && currentTrexCount < 2 ? 1 : 0);
+    for (let i = 0; i < trexSpawn; i++) {
+      const entity = this.SpawnTRex(centerX, centerZ);
+      if (entity) {
+        tile.entities.push(entity);
+      }
+    }
+
+    // Add Apatosaurus (10% chance per tile)
+    // Add Apatosaurus (10% chance, max 4 global)
+    const currentApatoCount = this.GetEntityCount('ApatosaurusController');
+    const apatoSpawn = this.preparedTile?.apatosaurusCount ?? (Math.random() < 0.1 && currentApatoCount < 4 ? 1 : 0);
+    for (let i = 0; i < apatoSpawn; i++) {
+      const entity = this.SpawnApatosaurus(centerX, centerZ);
       if (entity) {
         tile.entities.push(entity);
       }
@@ -324,6 +352,64 @@ export default class TileManager extends Component {
     return entity;
   }
 
+  SpawnTRex(centerX: number, centerZ: number): Entity | null {
+    const trexModel = this.assets['trex'];
+    if (!trexModel) return null;
+
+    const margin = 8; // More margin for larger dino
+    const halfSize = this.tileSize / 2 - margin;
+    const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
+    const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
+
+    const modelClone = SkeletonUtils.clone(trexModel);
+
+    if (trexModel.animations && trexModel.animations.length > 0) {
+      (modelClone as any).animations = trexModel.animations;
+    }
+
+    const entity = new Entity();
+    entity.SetName(`TRex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    entity.SetPosition(new THREE.Vector3(x, 0.5, z));
+    entity.AddComponent(new TRexController(modelClone, this.scene, this.physicsWorld));
+
+    this.entityManager.Add(entity);
+
+    for (const key in entity.components) {
+      entity.components[key].Initialize();
+    }
+
+    return entity;
+  }
+
+  SpawnApatosaurus(centerX: number, centerZ: number): Entity | null {
+    const apatosaurusModel = this.assets['apatosaurus'];
+    if (!apatosaurusModel) return null;
+
+    const margin = 10; // Even more margin for long-neck dino
+    const halfSize = this.tileSize / 2 - margin;
+    const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
+    const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
+
+    const modelClone = SkeletonUtils.clone(apatosaurusModel);
+
+    if (apatosaurusModel.animations && apatosaurusModel.animations.length > 0) {
+      (modelClone as any).animations = apatosaurusModel.animations;
+    }
+
+    const entity = new Entity();
+    entity.SetName(`Apatosaurus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    entity.SetPosition(new THREE.Vector3(x, 0.5, z));
+    entity.AddComponent(new ApatosaurusController(modelClone, this.scene, this.physicsWorld));
+
+    this.entityManager.Add(entity);
+
+    for (const key in entity.components) {
+      entity.components[key].Initialize();
+    }
+
+    return entity;
+  }
+
   SpawnWeaponPickup(centerX: number, centerZ: number, weaponKey: string): Entity | null {
     const margin = 5;
     const halfSize = this.tileSize / 2 - margin;
@@ -406,7 +492,24 @@ export default class TileManager extends Component {
     for (const entity of oldTile.entities) {
       // Handle animal controllers
       const animalController =
-        entity.GetComponent('RabbitController') || entity.GetComponent('FoxController');
+        entity.GetComponent('RabbitController') ||
+        entity.GetComponent('FoxController') ||
+        entity.GetComponent('TRexController') ||
+        entity.GetComponent('ApatosaurusController');
+
+      // Check for persistent animals (T-Rex, Apatosaurus) to relocate
+      const isPersistent =
+        entity.GetComponent('TRexController') || entity.GetComponent('ApatosaurusController');
+
+      if (isPersistent && !(animalController as any).isDead) {
+        // Relocate to the newest tile (last in list)
+        if (this.tiles.length > 0) {
+          const targetTile = this.tiles[this.tiles.length - 1];
+          this.RelocateEntity(entity, targetTile);
+          continue; // Skip cleanup/remove
+        }
+      }
+
       if (animalController && 'Cleanup' in animalController) {
         (animalController as any).Cleanup();
       }
@@ -422,6 +525,47 @@ export default class TileManager extends Component {
       }
       this.entityManager.Remove(entity);
     }
+  }
+
+  GetEntityCount(componentName: string): number {
+    let count = 0;
+    for (const tile of this.tiles) {
+      for (const entity of tile.entities) {
+        if (entity.GetComponent(componentName)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  RelocateEntity(entity: Entity, targetTile: TileData): void {
+    const margin = 10;
+    const halfSize = this.tileSize / 2 - margin;
+    const centerX = targetTile.x * this.tileSize;
+    const centerZ = targetTile.z * this.tileSize;
+
+    const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
+    const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
+
+    const animalController =
+      entity.GetComponent('TRexController') || entity.GetComponent('ApatosaurusController');
+
+    if (animalController) {
+      // Move visual model
+      (animalController as any).model.position.set(x, 0.5, z);
+      // Let update loop handle collider sync, or force it here if needed
+      if ('updateColliderPosition' in animalController) {
+        (animalController as any).updateColliderPosition();
+      }
+      // Reset path/state
+      if ('clearPath' in animalController) {
+        (animalController as any).clearPath();
+      }
+    }
+
+    // Add to new tile
+    targetTile.entities.push(entity);
   }
 
   GetPlayerTile(): { x: number; z: number } {

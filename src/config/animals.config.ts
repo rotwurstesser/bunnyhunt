@@ -122,9 +122,9 @@ export const FOX_ENTITY_CONFIG: AnimalConfig = {
   health: 30,
   maxHealth: 30,
   speed: 6.0,
-  baseScale: 0.5,
-  colliderRadius: 1.0,
-  colliderYOffset: 0.4,
+  baseScale: 0.35,
+  colliderRadius: 0.8,
+  colliderYOffset: 0.2,
 };
 
 /**
@@ -190,6 +190,135 @@ export const MUTANT_BEHAVIOR_CONFIG: BehaviorConfig = {
 };
 
 // ============================================================================
+// T-REX CONFIGURATION
+// ============================================================================
+
+/**
+ * T-Rex animation configuration.
+ * FBX with embedded animations.
+ */
+export const TREX_ANIMATION_CONFIG: EntityAnimationConfig<'trex'> = {
+  entityType: 'trex',
+  source: 'fbx-embedded',
+  clipMatcher: (clipName: string): AnimationActionName | null => {
+    const name = clipName.toLowerCase();
+
+    if (name.includes('idle') || name.includes('stand')) {
+      return 'idle';
+    }
+
+    if (name.includes('walk')) {
+      return 'walk';
+    }
+
+    if (name.includes('run')) {
+      return 'run';
+    }
+
+    if (name.includes('attack') || name.includes('bite')) {
+      return 'attack';
+    }
+
+    if (name.includes('die') || name.includes('death')) {
+      return 'die';
+    }
+
+    return null;
+  },
+  fallbacks: { run: 'walk' },
+};
+
+/**
+ * T-Rex entity configuration.
+ * Slow but deadly predator.
+ */
+export const TREX_ENTITY_CONFIG: AnimalConfig = {
+  name: 'TRexController',
+  animalType: 'trex',
+  health: 150,
+  maxHealth: 150,
+  speed: 3.0,
+  baseScale: 0.025,
+  colliderRadius: 6.0,
+  colliderYOffset: 0.8,
+  healthBarYOffset: 4.0,
+  healthBarScale: 3.0,
+};
+
+/**
+ * T-Rex behavior configuration.
+ * Slow but massive damage.
+ */
+export const TREX_BEHAVIOR_CONFIG: BehaviorConfig = {
+  type: 'predator',
+  viewDistance: 30.0,
+  attackDistance: 4.0,
+  attackDamage: 50, // Massive damage
+  chaseSpeed: 4.0,
+};
+
+// ============================================================================
+// APATOSAURUS CONFIGURATION
+// ============================================================================
+
+/**
+ * Apatosaurus animation configuration.
+ * FBX with embedded animations.
+ */
+export const APATOSAURUS_ANIMATION_CONFIG: EntityAnimationConfig<'apatosaurus'> = {
+  entityType: 'apatosaurus',
+  source: 'fbx-embedded',
+  clipMatcher: (clipName: string): AnimationActionName | null => {
+    const name = clipName.toLowerCase();
+
+    if (name.includes('idle') || name.includes('stand')) {
+      return 'idle';
+    }
+
+    if (name.includes('walk')) {
+      return 'walk';
+    }
+
+    if (name.includes('run')) {
+      return 'run';
+    }
+
+    if (name.includes('die') || name.includes('death')) {
+      return 'die';
+    }
+
+    return null;
+  },
+  fallbacks: { run: 'walk' },
+};
+
+/**
+ * Apatosaurus entity configuration.
+ * Peaceful herbivore with lots of health.
+ */
+export const APATOSAURUS_ENTITY_CONFIG: AnimalConfig = {
+  name: 'ApatosaurusController',
+  animalType: 'apatosaurus',
+  health: 150,
+  maxHealth: 150,
+  speed: 4.0,
+  baseScale: 0.02,
+  colliderRadius: 8.0,
+  colliderYOffset: 1.0,
+  healthBarYOffset: 6.0,
+  healthBarScale: 4.0,
+};
+
+/**
+ * Apatosaurus behavior configuration.
+ * Peaceful, flees from player.
+ */
+export const APATOSAURUS_BEHAVIOR_CONFIG: BehaviorConfig = {
+  type: 'prey',
+  fleeDistance: 20.0,
+};
+
+// ============================================================================
 // REGISTRY
 // ============================================================================
 
@@ -200,6 +329,8 @@ export const ANIMATION_CONFIGS = {
   rabbit: RABBIT_ANIMATION_CONFIG,
   fox: FOX_ANIMATION_CONFIG,
   mutant: MUTANT_ANIMATION_CONFIG,
+  trex: TREX_ANIMATION_CONFIG,
+  apatosaurus: APATOSAURUS_ANIMATION_CONFIG,
 } as const;
 
 /**
@@ -209,6 +340,8 @@ export const ENTITY_CONFIGS = {
   rabbit: RABBIT_ENTITY_CONFIG,
   fox: FOX_ENTITY_CONFIG,
   mutant: MUTANT_ENTITY_CONFIG,
+  trex: TREX_ENTITY_CONFIG,
+  apatosaurus: APATOSAURUS_ENTITY_CONFIG,
 } as const;
 
 /**
@@ -218,6 +351,8 @@ export const BEHAVIOR_CONFIGS = {
   rabbit: RABBIT_BEHAVIOR_CONFIG,
   fox: FOX_BEHAVIOR_CONFIG,
   mutant: MUTANT_BEHAVIOR_CONFIG,
+  trex: TREX_BEHAVIOR_CONFIG,
+  apatosaurus: APATOSAURUS_BEHAVIOR_CONFIG,
 } as const;
 
 // ============================================================================

@@ -16,6 +16,8 @@ import Component from '../../core/Component';
 interface HealthParams {
   health: number;
   maxHealth: number;
+  healthBarYOffset?: number;
+  healthBarScale?: number;
 }
 
 /** Player controls interface for camera access */
@@ -84,6 +86,11 @@ export default class HealthBar extends Component {
     this.container = new THREE.Group();
     this.container.add(this.bgMesh);
     this.container.add(this.barMesh);
+
+    // Scale the health bar for larger entities
+    const scale = this.params.healthBarScale ?? 1.0;
+    this.container.scale.setScalar(scale);
+
     this.scene.add(this.container);
   }
 
@@ -106,7 +113,7 @@ export default class HealthBar extends Component {
     // Position above parent
     if (this.parent) {
       const pos = this.parent.position.clone();
-      pos.y += 1.8;
+      pos.y += this.params.healthBarYOffset ?? 1.8;
       this.container.position.copy(pos);
     }
 
