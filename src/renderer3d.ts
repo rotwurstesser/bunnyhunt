@@ -82,7 +82,7 @@ export class Renderer3D {
 
     // Camera
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.set(0, 80, 80);
+    this.camera.position.set(0, 30, 30); // Closer view for small map
     this.camera.lookAt(0, 0, 0);
 
     // Renderer - Performance Optimized
@@ -116,8 +116,8 @@ export class Renderer3D {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.1;
-    this.controls.minDistance = 20;
-    this.controls.maxDistance = 200;
+    this.controls.minDistance = 5; // Allow close zoom
+    this.controls.maxDistance = 100;
 
     // Init Content
     this.initGround();
@@ -627,9 +627,9 @@ export class Renderer3D {
     // Trees
     const treeGeo = ModelFactory.createTree();
     const treeMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // Standard material, no wind
-    this.treesMesh = new THREE.InstancedMesh(treeGeo, treeMat, 50000);
+    this.treesMesh = new THREE.InstancedMesh(treeGeo, treeMat, 5000); // Reduced from 50000
     this.treesMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.treesMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(50000 * 3), 3);
+    this.treesMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(5000 * 3), 3);
     this.treesMesh.castShadow = true;
     this.treesMesh.receiveShadow = true;
     this.scene.add(this.treesMesh);
@@ -639,16 +639,16 @@ export class Renderer3D {
     // No wind, usage MeshLambertMaterial
     const grassMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
 
-    this.grassMesh = new THREE.InstancedMesh(grassGeo, grassMat, 100000); // Reduced from 400000 for performance
+    this.grassMesh = new THREE.InstancedMesh(grassGeo, grassMat, 10000); // Reduced from 100000
     this.grassMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.grassMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(100000 * 3), 3);
+    this.grassMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(10000 * 3), 3);
     // Grass doesn't need to cast shadows - performance optimization
     this.scene.add(this.grassMesh);
 
     // Rabbits
     const rabbitGeo = ModelFactory.createRabbit();
     const rabbitMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-    this.rabbitMesh = new THREE.InstancedMesh(rabbitGeo, rabbitMat, 5000);
+    this.rabbitMesh = new THREE.InstancedMesh(rabbitGeo, rabbitMat, 200); // Reduced from 5000
     this.rabbitMesh.castShadow = true;
     this.rabbitMesh.receiveShadow = true;
     this.scene.add(this.rabbitMesh);
@@ -656,7 +656,7 @@ export class Renderer3D {
     // Wolves
     const wolfGeo = ModelFactory.createWolf();
     const wolfMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.6 });
-    this.wolfMesh = new THREE.InstancedMesh(wolfGeo, wolfMat, 500);
+    this.wolfMesh = new THREE.InstancedMesh(wolfGeo, wolfMat, 50); // Reduced from 500
     this.wolfMesh.castShadow = true;
     this.wolfMesh.receiveShadow = true;
     this.scene.add(this.wolfMesh);
@@ -875,7 +875,7 @@ export class Renderer3D {
 
       const mat = this.loadedAssets.rabbit.mat;
 
-      this.rabbitMesh = new THREE.InstancedMesh(geo, mat, 5000);
+      this.rabbitMesh = new THREE.InstancedMesh(geo, mat, 200);
       this.rabbitMesh.castShadow = true;
       this.rabbitMesh.receiveShadow = true;
 
@@ -901,7 +901,7 @@ export class Renderer3D {
       const geo = this.loadedAssets.fox.geo.clone();
       const mat = this.loadedAssets.fox.mat;
 
-      this.wolfMesh = new THREE.InstancedMesh(geo, mat, 500);
+      this.wolfMesh = new THREE.InstancedMesh(geo, mat, 50);
       this.wolfMesh.castShadow = true;
       this.wolfMesh.receiveShadow = true;
       this.scene.add(this.wolfMesh);

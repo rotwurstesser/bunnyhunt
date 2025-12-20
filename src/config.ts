@@ -7,9 +7,10 @@ export const RUNTIME = {
 
 export const CONFIG = {
   // World Settings - Mobile Optimized
+  // World Settings - Shooter Mode (Small Map)
   seed: 12347,
-  worldSize: 150, // Reduced from 300 for mobile performance
-  cellSize: 3,
+  worldSize: 50, // Reduced from 150/300
+  cellSize: 4,   // Slightly larger cells for better visibility
 
   // Visual Settings (Runtime)
   visual: {
@@ -17,8 +18,8 @@ export const CONFIG = {
     treeY: 0.0,
     grassScale: 0.6,
     grassY: 0.0,
-    grassDensity: 3.0, // Reduced for mobile performance
-    grassCoverage: 0.6, // Reduced for mobile performance
+    grassDensity: 1.0, // Low density for performance
+    grassCoverage: 0.4,
     rabbitScale: 0.6,
     rabbitY: 0.2,
     wolfScale: 0.3,
@@ -27,22 +28,22 @@ export const CONFIG = {
 
   // Water Generation
   waterLevel: 0.39,
-  riverCount: 10, // Reduced for mobile
+  riverCount: 2, // Few rivers
   erosionRate: 0.1,
 
   // Vegetation Generation
-  treeDensity: 0.02, // Reduced from 0.05 for mobile
+  treeDensity: 0.08, // Higher density for "Small Forest" feel on small map (50x50 * 0.08 = 200 trees)
 
-  grassDensity: 0.05, // Reduced from 0.1
+  grassDensity: 0.1,
 
   // Animal Generation
-  rabbitCount: 200, // Reduced from 800 for mobile
-  wolfCount: 5, // Reduced from 20 for mobile
+  rabbitCount: 50,
+  wolfCount: 12,
 
-  // Spawn rates (new - for configurator)
+  // Spawn rates (unused in static mode but good for ref)
   spawnRates: {
-    rabbitSpawnRate: 0.01,
-    wolfSpawnRate: 0.002
+    rabbitSpawnRate: 0.0,
+    wolfSpawnRate: 0.0
   },
 
   // Time settings
