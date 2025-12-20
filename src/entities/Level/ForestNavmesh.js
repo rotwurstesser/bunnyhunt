@@ -1,58 +1,40 @@
 import * as THREE from 'three'
 import Component from '../../Component'
-import { Pathfinding } from 'three-pathfinding'
 
+/**
+ * Simplified navmesh for infinite flat terrain.
+ * Since terrain is flat and infinite, we use direct navigation.
+ */
 export default class ForestNavmesh extends Component {
-    constructor(mapSize = 80) {
+    constructor() {
         super();
         this.name = 'Navmesh';
-        this.mapSize = mapSize;
-        this.zone = 'forest';
     }
 
     Initialize() {
-        this.pathfinding = new Pathfinding();
-
-        // Create a simple flat navmesh geometry
-        const navmeshGeo = new THREE.PlaneGeometry(this.mapSize - 10, this.mapSize - 10, 4, 4);
-        navmeshGeo.rotateX(-Math.PI / 2);
-
-        // Create zone data from geometry
-        this.pathfinding.setZoneData(this.zone, Pathfinding.createZone(navmeshGeo));
+        // No complex navmesh needed for flat infinite terrain
     }
 
+    /**
+     * Get a random navigation point within range of given position.
+     */
     GetRandomNode(position, range) {
-        try {
-            // Normalize Y to navmesh level for pathfinding
-            const navPos = new THREE.Vector3(position.x, 0, position.z);
-            const groupID = this.pathfinding.getGroup(this.zone, navPos);
-            const node = this.pathfinding.getRandomNode(this.zone, groupID, navPos, range);
-            if (node) {
-                node.y = 0; // Keep at ground level
-            }
-            return node;
-        } catch (e) {
-            // Fallback to random position
-            const halfMap = this.mapSize / 2 - 10;
-            return new THREE.Vector3(
-                (Math.random() - 0.5) * 2 * halfMap,
-                0,
-                (Math.random() - 0.5) * 2 * halfMap
-            );
-        }
+        // Generate random angle and distance
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * range;
+
+        const x = position.x + Math.cos(angle) * distance;
+        const z = position.z + Math.sin(angle) * distance;
+
+        return new THREE.Vector3(x, 0, z);
     }
 
+    /**
+     * Find path from start to end.
+     * For flat terrain, direct path works fine.
+     */
     FindPath(start, end) {
-        try {
-            // Normalize Y to navmesh level for pathfinding
-            const navStart = new THREE.Vector3(start.x, 0, start.z);
-            const navEnd = new THREE.Vector3(end.x, 0, end.z);
-            const groupID = this.pathfinding.getGroup(this.zone, navStart);
-            const path = this.pathfinding.findPath(navStart, navEnd, this.zone, groupID);
-            return path && path.length > 0 ? path : [navEnd.clone()];
-        } catch (e) {
-            // Direct path fallback
-            return [new THREE.Vector3(end.x, 0, end.z)];
-        }
+        // For flat terrain, just return direct path to target
+        return [new THREE.Vector3(end.x, 0, end.z)];
     }
 }

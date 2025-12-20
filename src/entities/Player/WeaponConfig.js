@@ -58,7 +58,7 @@ export const WEAPONS = {
 export const WEAPON_TIERS = ['rifle', 'ak47', 'gatling', 'nuke'];
 
 // Kill thresholds for each weapon tier
-export const WEAPON_THRESHOLDS = [0, 15, 30, 50];
+export const WEAPON_THRESHOLDS = [0, 3, 10, 20];
 
 export function getWeaponConfig(weaponKey) {
     return WEAPONS[weaponKey] || WEAPONS.rifle;

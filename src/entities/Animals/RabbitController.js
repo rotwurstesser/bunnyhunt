@@ -282,6 +282,7 @@ export default class RabbitController extends Component {
         bloodPool.position.copy(this.model.position);
         bloodPool.position.y = 0.01; // Just above ground
         this.scene.add(bloodPool);
+        this.bloodPool = bloodPool; // Track for cleanup
     }
 
     Cleanup() {
@@ -297,8 +298,17 @@ export default class RabbitController extends Component {
             }
             this.ghostObj = null;
         }
-        if (this.model) {
+        // Remove blood pool
+        if (this.bloodPool && this.scene) {
+            this.scene.remove(this.bloodPool);
+            this.bloodPool.geometry.dispose();
+            this.bloodPool.material.dispose();
+            this.bloodPool = null;
+        }
+        // Remove model
+        if (this.model && this.scene) {
             this.scene.remove(this.model);
+            this.model = null;
         }
     }
 

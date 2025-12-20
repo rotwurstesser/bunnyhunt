@@ -34,6 +34,7 @@ export default class Weapon extends Component{
         this.reloading = false;
         this.hitResult = {intersectionPoint: new THREE.Vector3(), intersectionNormal: new THREE.Vector3()};
         this.inputSetup = false;
+        this.impactEffects = []; // Track impact effects for cleanup
     }
 
     ApplyWeaponConfig(weaponKey) {
@@ -121,6 +122,8 @@ export default class Weapon extends Component{
         // Update UI
         if (this.uimanager) {
             this.uimanager.SetAmmo(this.magAmmo, this.ammo);
+            this.uimanager.SetWeaponName(this.weaponName);
+            this.uimanager.ShowUpgradeNotification(this.weaponName);
         }
     }
 
@@ -151,6 +154,10 @@ export default class Weapon extends Component{
         this.uimanager = this.FindEntity("UIManager").GetComponent("UIManager");
         this.uimanager.SetAmmo(this.magAmmo, this.ammo);
 
+        // Get scene reference for impact effects
+        const level = this.FindEntity("Level");
+        this.scene = level?.GetComponent("TileManager")?.scene || level?.GetComponent("ForestLighting")?.scene;
+
         if (!this.inputSetup) {
             this.SetupInput();
             this.inputSetup = true;
@@ -159,8 +166,18 @@ export default class Weapon extends Component{
         // Listen to ammo pickup event
         this.parent.RegisterEventHandler(this.AmmoPickup, "AmmoPickup");
 
-        // Listen to weapon upgrade event
+        // Listen to weapon pickup event (from pickups in world)
+        this.parent.RegisterEventHandler(this.OnWeaponPickup, "weapon_pickup");
+
+        // Listen to weapon upgrade event (legacy - from kill thresholds)
         this.parent.RegisterEventHandler(this.OnWeaponUpgrade, "weapon_upgrade");
+    }
+
+    OnWeaponPickup = (msg) => {
+        const newWeaponKey = msg.weaponKey;
+        if (newWeaponKey && newWeaponKey !== this.currentWeaponKey) {
+            this.SwitchWeapon(newWeaponKey);
+        }
     }
 
     SetupInput(){
@@ -226,12 +243,62 @@ export default class Weapon extends Component{
                 // Look up entity from collision object registry
                 const entity = AmmoHelper.GetEntityFromCollisionObject(collisionObj);
 
+                // Determine what was hit and create appropriate impact effect
+                let isLiving = false;
                 if (entity && entity.Broadcast) {
                     entity.Broadcast({'topic': 'hit', from: this.parent, amount: this.damage, hitResult: this.hitResult});
+                    isLiving = true; // Hit an entity (animal)
                 }
+
+                // Create impact effect at hit point
+                this.CreateImpactEffect(this.hitResult.intersectionPoint, isLiving);
             }
         } catch (e) {
             console.error('Weapon.Raycast error:', e);
+        }
+    }
+
+    CreateImpactEffect(position, isLiving) {
+        if (!this.scene) return;
+
+        // Create small sphere for impact
+        const size = isLiving ? 0.15 : 0.08; // Slightly larger for blood
+        const color = isLiving ? 0xAA0000 : 0x8B4513; // Red for blood, brown for wood/ground
+
+        const geometry = new THREE.SphereGeometry(size, 8, 8);
+        const material = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 1.0
+        });
+        const impact = new THREE.Mesh(geometry, material);
+        impact.position.copy(position);
+        impact.position.y += 0.05; // Slightly above surface
+        this.scene.add(impact);
+
+        // Track for cleanup
+        const effectData = {
+            mesh: impact,
+            life: 0.5, // Fade out over 0.5 seconds
+            maxLife: 0.5
+        };
+        this.impactEffects.push(effectData);
+
+        // Also schedule removal after 0.5 seconds
+        setTimeout(() => {
+            this.RemoveImpactEffect(effectData);
+        }, 500);
+    }
+
+    RemoveImpactEffect(effectData) {
+        if (effectData.mesh && this.scene) {
+            this.scene.remove(effectData.mesh);
+            effectData.mesh.geometry.dispose();
+            effectData.mesh.material.dispose();
+        }
+        const idx = this.impactEffects.indexOf(effectData);
+        if (idx > -1) {
+            this.impactEffects.splice(idx, 1);
         }
     }
 

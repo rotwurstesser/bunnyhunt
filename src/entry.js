@@ -11,8 +11,9 @@ import * as THREE from 'three'
 import {AmmoHelper, Ammo, createConvexHullShape} from './AmmoLib'
 import EntityManager from './EntityManager'
 import Entity from './Entity'
-import ForestLevel from './entities/Level/ForestLevel'
+import ForestLighting from './entities/Level/ForestLighting'
 import ForestNavmesh from './entities/Level/ForestNavmesh'
+import TileManager from './entities/Level/TileManager'
 import PlayerControls from './entities/Player/PlayerControls'
 import PlayerPhysics from './entities/Player/PlayerPhysics'
 import Stats from 'three/examples/jsm/libs/stats.module'
@@ -243,11 +244,12 @@ class FPSGameApp{
   EntitySetup(){
     this.entityManager = new EntityManager();
 
-    // Procedural forest level
+    // Level entity with lighting, navmesh, and tile manager
     const levelEntity = new Entity();
     levelEntity.SetName('Level');
-    levelEntity.AddComponent(new ForestLevel(this.scene, this.physicsWorld));
-    levelEntity.AddComponent(new ForestNavmesh(80));
+    levelEntity.AddComponent(new ForestLighting(this.scene));
+    levelEntity.AddComponent(new ForestNavmesh());
+    levelEntity.AddComponent(new TileManager(this.scene, this.physicsWorld, this.assets, this.entityManager));
     this.entityManager.Add(levelEntity);
 
     // Player spawns at center of forest

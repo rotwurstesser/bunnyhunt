@@ -5,6 +5,7 @@ import Entity from '../../Entity'
 import RabbitController from '../Animals/RabbitController'
 import FoxController from '../Animals/FoxController'
 import NukeProjectile from '../Player/NukeProjectile'
+import WeaponPickup from '../Pickups/WeaponPickup'
 
 export default class SpawnManager extends Component {
     constructor(scene, physicsWorld, assets) {
@@ -37,14 +38,39 @@ export default class SpawnManager extends Component {
         this.parent.RegisterEventHandler(this.OnAnimalDied, 'animal_died');
         this.parent.RegisterEventHandler(this.OnNukeDetonated, 'nuke_detonated');
         this.parent.RegisterEventHandler(this.OnNukeFired, 'nuke_fired');
+        this.parent.RegisterEventHandler(this.OnFoxWeaponDrop, 'fox_weapon_drop');
 
-        // Initial spawn
-        for (let i = 0; i < this.initialRabbits; i++) {
-            this.SpawnRabbit();
+        // Note: Initial spawning is now handled by TileManager
+        // SpawnManager only handles respawns and nuke events
+    }
+
+    OnFoxWeaponDrop = (msg) => {
+        // Random weapon with rarity - foxes drop better loot!
+        // AK-47: 50%, Gatling: 35%, Nuke: 15%
+        const roll = Math.random();
+        let weaponKey = 'ak47';
+        if (roll < 0.15) {
+            weaponKey = 'nuke';
+        } else if (roll < 0.50) {
+            weaponKey = 'gatling';
         }
-        for (let i = 0; i < this.initialFoxes; i++) {
-            this.SpawnFox();
+
+        this.SpawnWeaponPickup(msg.position, weaponKey);
+    }
+
+    SpawnWeaponPickup(position, weaponKey) {
+        const entity = new Entity();
+        entity.SetName(`WeaponDrop_${weaponKey}_${Date.now()}`);
+        entity.SetPosition(position);
+        entity.AddComponent(new WeaponPickup(this.scene, weaponKey, position));
+
+        this.entityManager.Add(entity);
+
+        for (const key in entity.components) {
+            entity.components[key].Initialize();
         }
+
+        return entity;
     }
 
     GetRandomSpawnPosition() {
@@ -183,10 +209,10 @@ export default class SpawnManager extends Component {
             position: msg.position
         });
 
-        // Schedule entity cleanup
+        // Schedule entity cleanup (wait longer for dramatic effect)
         setTimeout(() => {
             this.CleanupEntity(msg.entity);
-        }, 2000); // Wait for death animation
+        }, 6000); // Wait 6 seconds before cleanup
     }
 
     CleanupEntity(entity) {
