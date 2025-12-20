@@ -33,12 +33,14 @@ export class Renderer3D {
 
   // Death Animation Pools
   private deathPool: {
-    mesh: THREE.Group,
-    mixer: THREE.AnimationMixer,
-    active: boolean,
-    type: 'rabbit' | 'fox'
+    mesh: THREE.Group;
+    mixer: THREE.AnimationMixer;
+    active: boolean;
+    type: 'rabbit' | 'fox';
+    manualAnim?: boolean;
+    animTime?: number;
   }[] = [];
-  private deathMixers: THREE.AnimationMixer[] = [];
+  // private deathMixers: THREE.AnimationMixer[] = []; // Removed redundant array, will iterate pool directly
 
   // Data reuse
   private dummy = new THREE.Object3D();
@@ -778,8 +780,7 @@ export class Renderer3D {
       this.scene.add(clone);
 
       const mixer = new THREE.AnimationMixer(clone);
-      this.deathPool.push({ mesh: clone, mixer, active: false, type });
-      this.deathMixers.push(mixer);
+      this.deathPool.push({ mesh: clone, mixer, active: false, type, manualAnim: false, animTime: 0 });
     }
   }
 
@@ -790,26 +791,26 @@ export class Renderer3D {
 
     item.active = true;
     item.mesh.visible = true;
+    item.animTime = 0;
 
-    // Position (Correct for world offset)
-    // The renderer uses 0,0 center, but world coords are 0..width.
-    // The visual conversion is usually: x + offset
+    // Position
     const offset = -this.worldRef.width / 2;
-    item.mesh.position.set(wx + offset, 0, wz + offset); // Assume ground level 0
-    item.mesh.rotation.y = Math.random() * Math.PI * 2;
+    item.mesh.position.set(wx + offset, 0, wz + offset);
+    const randomRot = Math.random() * Math.PI * 2;
+    item.mesh.rotation.set(0, randomRot, 0);
 
     // Find Animation
     let clip: THREE.AnimationClip | undefined;
     const assets = poolType === 'rabbit' ? this.loadedAssets.rabbit : this.loadedAssets.fox;
 
     if (assets && assets.animations.length > 0) {
-      // Try to find death clip
+      // Strict check: only actual death animations
       clip = assets.animations.find(a => a.name.toLowerCase().includes('death'));
       if (!clip) clip = assets.animations.find(a => a.name.toLowerCase().includes('die'));
-      if (!clip) clip = assets.animations[0]; // Fallback
     }
 
     if (clip) {
+      item.manualAnim = false;
       item.mixer.stopAllAction();
       const action = item.mixer.clipAction(clip);
       action.reset();
@@ -817,22 +818,42 @@ export class Renderer3D {
       action.clampWhenFinished = true;
       action.play();
 
-      // Auto-hide after clip duration + buffer
+      // Auto-hide
       setTimeout(() => {
         item.active = false;
         item.mesh.visible = false;
       }, clip.duration * 1000 + 2000); // 2 seconds extra
     } else {
-      // No anim, just hide after a bit
+      // Procedural Death (Topple)
+      item.manualAnim = true;
+      item.mixer.stopAllAction(); // Stop anything else
+
       setTimeout(() => {
         item.active = false;
         item.mesh.visible = false;
-      }, 1000);
+      }, 1500);
     }
   }
 
   public updateDeathAnimations(delta: number) {
-    this.deathMixers.forEach(m => m.update(delta));
+    this.deathPool.forEach(item => {
+      if (!item.active) return;
+
+      if (item.manualAnim) {
+        // Procedural Topple
+        item.animTime = (item.animTime || 0) + delta;
+        const dur = 0.5;
+        if (item.animTime < dur) {
+          const t = item.animTime / dur;
+          const ease = t * (2 - t);
+          item.mesh.rotation.x = (Math.PI / 2) * ease;
+        } else {
+          item.mesh.rotation.x = Math.PI / 2;
+        }
+      } else {
+        item.mixer.update(delta);
+      }
+    });
   }
 
   private recreateAnimalMeshes() {
