@@ -123,9 +123,11 @@ export class Renderer3D {
   private touchStartPos: { x: number; y: number } | null = null;
   private touchStartTime = 0;
   private isTouchDragging = false;
+  private isTouchHolding = false; // For minigun auto-fire on touch hold
   private lastTouchPos: { x: number; y: number } | null = null;
   private readonly TAP_THRESHOLD = 15; // Max pixels moved to count as tap
   private readonly TAP_TIME_THRESHOLD = 300; // Max ms for a tap
+  private readonly HOLD_THRESHOLD = 400; // Ms to count as hold for auto-fire
 
   private onTouchStart(e: TouchEvent) {
     if (e.touches.length === 1) {
@@ -155,6 +157,17 @@ export class Renderer3D {
       // If moved beyond threshold, it's a drag (pan)
       if (distance > this.TAP_THRESHOLD) {
         this.isTouchDragging = true;
+        this.isTouchHolding = false;
+      }
+
+      // If holding still for long enough, enable auto-fire for minigun
+      const holdDuration = Date.now() - this.touchStartTime;
+      if (!this.isTouchDragging && holdDuration > this.HOLD_THRESHOLD) {
+        this.isTouchHolding = true;
+        // Update aim position while holding
+        this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+        this.updateWeaponAim();
       }
 
       if (this.isTouchDragging) {
@@ -186,13 +199,14 @@ export class Renderer3D {
       const touchDuration = Date.now() - this.touchStartTime;
 
       // If it was a quick tap without much movement, shoot!
-      if (!this.isTouchDragging && touchDuration < this.TAP_TIME_THRESHOLD) {
+      if (!this.isTouchDragging && !this.isTouchHolding && touchDuration < this.TAP_TIME_THRESHOLD) {
         this.shoot();
       }
 
       this.touchStartPos = null;
       this.lastTouchPos = null;
       this.isTouchDragging = false;
+      this.isTouchHolding = false;
     }
   }
 
@@ -326,15 +340,22 @@ export class Renderer3D {
     this.lastShotTime = now;
     const group = this.weaponGroups[this.activeWeapon];
 
-    // Muzzle Flash
+    // Muzzle Flash - bigger and brighter for minigun
     if (this.activeWeapon !== 'nuke') {
-      const flash = new THREE.PointLight(0xffaa00, 2, 5);
+      const flashIntensity = this.activeWeapon === 'minigun' ? 5 : 2;
+      const flashRange = this.activeWeapon === 'minigun' ? 8 : 5;
+      const flash = new THREE.PointLight(0xffaa00, flashIntensity, flashRange);
       flash.position.set(0, 0, 1.2); // Approx Muzzle
       group.add(flash);
-      setTimeout(() => group.remove(flash), 50);
+      setTimeout(() => group.remove(flash), this.activeWeapon === 'minigun' ? 30 : 50);
 
-      // Recoil
-      group.userData.recoil = 0.2;
+      // Recoil - less for minigun
+      group.userData.recoil = this.activeWeapon === 'minigun' ? 0.05 : 0.2;
+
+      // Tracer bullet effect for minigun
+      if (this.activeWeapon === 'minigun') {
+        this.createTracerBullet();
+      }
     }
 
     if (this.activeWeapon === 'nuke') {
@@ -424,6 +445,41 @@ export class Renderer3D {
       life: 200, // frames
       type: 'rocket'
     });
+  }
+
+  private createTracerBullet() {
+    // Create a visible tracer from weapon to target
+    const group = this.weaponGroups['minigun'];
+    if (!group) return;
+
+    const origin = new THREE.Vector3();
+    group.getWorldPosition(origin);
+
+    // Get target from raycast
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObject(this.groundMesh);
+
+    let targetPoint: THREE.Vector3;
+    if (intersects.length > 0) {
+      targetPoint = intersects[0].point;
+    } else {
+      // Fallback: shoot into distance
+      const dir = new THREE.Vector3();
+      this.camera.getWorldDirection(dir);
+      targetPoint = origin.clone().add(dir.multiplyScalar(100));
+    }
+
+    // Create tracer line
+    const points = [origin, targetPoint];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.8
+    });
+    const tracer = new THREE.Line(geometry, material);
+    tracer.userData = { type: 'tracer', life: 0.15 };
+    this.effectsGroup.add(tracer);
   }
 
   private nukeAll() {
@@ -971,19 +1027,21 @@ export class Renderer3D {
     if (this.activeWeapon === 'minigun') {
       const grp = this.weaponGroups['minigun'];
       if (grp) {
-        if (this.keysPressed['Space']) {
-          grp.userData.spin += 0.5; // Spool up
-          if (grp.userData.spin > 20) grp.userData.spin = 20; // Max speed
+        // Also check for touch hold (isTouchDragging with no movement)
+        const isFiring = this.keysPressed['Space'] || this.isTouchHolding;
+        if (isFiring) {
+          grp.userData.spin += 0.8; // Faster spool up
+          if (grp.userData.spin > 25) grp.userData.spin = 25; // Higher max speed
 
-          // Actually shoot if fast enough
-          if (grp.userData.spin > 10) {
+          // Actually shoot if fast enough - lower threshold for faster fire
+          if (grp.userData.spin > 6) {
             this.shoot();
           }
         } else {
-          grp.userData.spin *= 0.95; // Spool down
+          grp.userData.spin *= 0.92; // Slightly faster spool down
         }
-        // Rotate barrels
-        grp.userData.barrels.rotation.z += grp.userData.spin * 0.05;
+        // Rotate barrels faster
+        grp.userData.barrels.rotation.z += grp.userData.spin * 0.06;
       }
     }
 
@@ -1057,7 +1115,12 @@ export class Renderer3D {
     for (let i = this.effectsGroup.children.length - 1; i >= 0; i--) {
       const child = this.effectsGroup.children[i] as THREE.Mesh;
 
-      if (child.userData.type === 'puddle') {
+      if (child.userData.type === 'tracer') {
+        // Tracer bullets fade fast
+        child.userData.life -= 0.05;
+        (child.material as THREE.LineBasicMaterial).opacity = child.userData.life;
+      }
+      else if (child.userData.type === 'puddle') {
         child.userData.life -= 0.005; // Slow fade
         // Scale up initially
         if (child.scale.x < child.userData.maxScale) {

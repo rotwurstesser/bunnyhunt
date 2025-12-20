@@ -1,7 +1,8 @@
 import { COLORS } from './colors';
 
 export const RUNTIME = {
-  headless: false
+  headless: false,
+  staticMode: true // When true, animals are static targets (no AI, no reproduction) - pure shooting mode
 };
 
 export const CONFIG = {

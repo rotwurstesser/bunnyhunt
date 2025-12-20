@@ -145,7 +145,14 @@ export class World {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         if (this.cells[y][x].animal && this.cells[y][x].animal!.id === id) {
+          const killedAnimal = this.cells[y][x].animal!;
           this.cells[y][x].animal = null;
+
+          // In static mode, respawn a new animal elsewhere
+          if (RUNTIME.staticMode) {
+            const newAnimal = killedAnimal.type === AnimalType.Rabbit ? new Rabbit() : new Wolf();
+            this.spawnRandomAnimal(newAnimal);
+          }
           return;
         }
       }
@@ -155,6 +162,20 @@ export class World {
   tick() {
     this.time++;
     this.events = []; // Clear events from previous tick
+
+    // In static mode, skip all AI updates for max performance
+    if (RUNTIME.staticMode) {
+      // Only update ground cover visuals occasionally
+      if (this.time % 10 === 0 && !RUNTIME.headless) {
+        for (let y = 0; y < this.height; y += 3) {
+          for (let x = 0; x < this.width; x += 3) {
+            const cell = this.cells[y][x];
+            if (cell.isLand) this.updateGroundCover(cell);
+          }
+        }
+      }
+      return; // Skip all AI/plant updates
+    }
 
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
