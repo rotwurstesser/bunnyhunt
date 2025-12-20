@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import Component from '../../Component'
 import { Ammo, AmmoHelper, CollisionFilterGroups } from '../../AmmoLib'
 import RabbitFSM from './RabbitFSM'
+import HealthBar from '../UI/HealthBar'
+import { DamageText } from '../UI/DamageText'
 
 export default class RabbitController extends Component {
   constructor(model, scene, physicsWorld) {
@@ -18,6 +20,7 @@ export default class RabbitController extends Component {
 
     // Rabbit-specific settings
     this.health = 10;
+    this.maxHealth = 10; // Added for HealthBar sync
     this.speed = 8.0;
     this.fleeDistance = 15.0;
     this.baseScale = 0.5; // Larger size for better visibility
@@ -55,6 +58,7 @@ export default class RabbitController extends Component {
         child.receiveShadow = true;
         // Force double-sided rendering and fix potential material issues
         if (child.material) {
+          child.material = child.material.clone(); // Clone for unique instance
           child.material.side = THREE.DoubleSide;
           child.material.needsUpdate = true;
         }
@@ -65,6 +69,11 @@ export default class RabbitController extends Component {
 
     // Create physics trigger for hit detection
     this.CreateCollider();
+
+    // Add Health Bar
+    const healthBar = new HealthBar(this.scene, this);
+    this.parent.AddComponent(healthBar);
+    healthBar.Initialize();
 
     // Start idle
     this.stateMachine.SetState('idle');
@@ -248,6 +257,21 @@ export default class RabbitController extends Component {
         this.stateMachine.SetState('flee');
       }
     }
+
+    // Show Damage Text
+    const damageText = new DamageText(this.model.position, msg.amount, this.scene);
+    damageText.Initialize();
+
+    // Flash Red
+    this.model.traverse(child => {
+      if (child.isMesh && child.material) {
+        const oldColor = child.material.color.getHex();
+        child.material.color.setHex(0xff0000);
+        setTimeout(() => {
+          if (child.material) child.material.color.setHex(oldColor);
+        }, 100);
+      }
+    });
   }
 
   OnDeath() {
@@ -269,7 +293,20 @@ export default class RabbitController extends Component {
   }
 
   CreateBloodPool() {
-    // Disabled per user feedback
+    // "More blood"
+    const geometry = new THREE.CircleGeometry(1.2, 32);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x8B0000,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide
+    });
+    const bloodPool = new THREE.Mesh(geometry, material);
+    bloodPool.rotation.x = -Math.PI / 2;
+    bloodPool.position.copy(this.model.position);
+    bloodPool.position.y = 0.02;
+    this.scene.add(bloodPool);
+    this.bloodPool = bloodPool; // Track for cleanup
   }
 
   Cleanup() {

@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import Component from '../../Component'
 import { Ammo, AmmoHelper, CollisionFilterGroups } from '../../AmmoLib'
 import FoxFSM from './FoxFSM'
+import HealthBar from '../UI/HealthBar'
+import { DamageText } from '../UI/DamageText'
 
 export default class FoxController extends Component {
   constructor(model, scene, physicsWorld) {
@@ -18,6 +20,7 @@ export default class FoxController extends Component {
 
     // Fox-specific settings
     this.health = 30;
+    this.maxHealth = 30; // Added for HealthBar sync
     this.speed = 6.0;
     this.chaseSpeed = 10.0;
     this.viewDistance = 25.0;
@@ -55,11 +58,15 @@ export default class FoxController extends Component {
     // Setup animations
     this.SetupAnimations();
 
-    // Ensure shadows
+    // Ensure shadows and CLONE materials to prevent shared-state visual bugs
     this.model.traverse(child => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        // Clone material so flashing red doesn't affect other instances
+        if (child.material) {
+          child.material = child.material.clone();
+        }
       }
     });
 
@@ -67,6 +74,11 @@ export default class FoxController extends Component {
 
     // Create physics trigger for hit detection
     this.CreateCollider();
+
+    // Add Health Bar
+    const healthBar = new HealthBar(this.scene, this);
+    this.parent.AddComponent(healthBar);
+    healthBar.Initialize();
 
     // Start idle
     this.stateMachine.SetState('idle');
@@ -264,6 +276,11 @@ export default class FoxController extends Component {
         });
       }
 
+      // Hide health bar
+      const healthBar = this.GetComponent('HealthBar');
+      if (healthBar) {
+        healthBar.container.visible = false;
+      }
       // Notify SpawnManager for respawn
       const spawnManager = this.FindEntity("SpawnManager");
       if (spawnManager) {
@@ -291,6 +308,22 @@ export default class FoxController extends Component {
       if (currentState !== 'chase' && currentState !== 'attack') {
         this.stateMachine.SetState('chase');
       }
+
+      // Visual Feedback
+      // 1. Show Damage Text
+      const damageText = new DamageText(this.model.position, msg.amount, this.scene);
+      damageText.Initialize(); // Self-managed
+
+      // 2. Flash Red
+      this.model.traverse(child => {
+        if (child.isMesh && child.material) {
+          const oldColor = child.material.color.getHex();
+          child.material.color.setHex(0xff0000);
+          setTimeout(() => {
+            if (child.material) child.material.color.setHex(oldColor);
+          }, 100);
+        }
+      });
     }
   }
 
@@ -309,7 +342,20 @@ export default class FoxController extends Component {
   }
 
   CreateBloodPool() {
-    // Disabled per user feedback
+    // "More blood" - Larger and more opaque
+    const geometry = new THREE.CircleGeometry(1.5, 32); // Increased radius 1.0 -> 1.5, segments 16 -> 32
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x8B0000,
+      transparent: true,
+      opacity: 0.9, // Increased opacity 0.8 -> 0.9
+      side: THREE.DoubleSide
+    });
+    const bloodPool = new THREE.Mesh(geometry, material);
+    bloodPool.rotation.x = -Math.PI / 2;
+    bloodPool.position.copy(this.model.position);
+    bloodPool.position.y = 0.02; // Slightly higher to avoid z-fighting
+    this.scene.add(bloodPool);
+    this.bloodPool = bloodPool; // Track for cleanup
   }
 
   Cleanup() {

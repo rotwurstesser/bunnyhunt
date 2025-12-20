@@ -5,7 +5,7 @@ export const WEAPONS = {
   rifle: {
     name: 'Pistol',
     fireRate: 0.5,        // Medium speed
-    damage: 15,
+    damage: 6,            // Nerfed ~60% (was 15)
     magAmmo: 12,
     ammoPerMag: 12,
     maxAmmo: 60,
@@ -22,8 +22,8 @@ export const WEAPONS = {
   },
   ak47: {
     name: 'SMG',
-    fireRate: 0.08,       // Fast automatic
-    damage: 6,
+    fireRate: 0.1,        // Slower fire rate (was 0.08)
+    damage: 2,            // Nerfed ~60% (was 5)
     magAmmo: 35,
     ammoPerMag: 35,
     maxAmmo: 175,
@@ -39,8 +39,8 @@ export const WEAPONS = {
   },
   gatling: {
     name: 'Assault Rifle',
-    fireRate: 0.06,       // Very fast
-    damage: 5,
+    fireRate: 0.08,       // Slower fire rate (was 0.06)
+    damage: 1.6,          // Nerfed ~60% (was 4)
     magAmmo: 45,
     ammoPerMag: 45,
     maxAmmo: 225,
@@ -56,8 +56,8 @@ export const WEAPONS = {
   },
   nuke: {
     name: 'Heavy SMG',
-    fireRate: 0.03,       // Extremely fast
-    damage: 3,
+    fireRate: 0.04,       // Slower fire rate (was 0.03)
+    damage: 1,            // Nerfed ~50% (was 2)
     magAmmo: 100,
     ammoPerMag: 100,
     maxAmmo: 400,
