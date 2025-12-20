@@ -2,6 +2,12 @@ import * as THREE from 'three';
 import Component from '../../core/Component';
 import { Entity } from '../../core/Entity';
 import SpawnManager from '../Spawn/SpawnManager';
+import type { IEntity } from '../../types/entity.types';
+
+/** TileManager interface for getting entities */
+interface TileManagerComponent {
+    tiles: Array<{ entities: IEntity[] }>;
+}
 
 export default class MiniMap extends Component {
     override name = 'MiniMap';
@@ -12,6 +18,7 @@ export default class MiniMap extends Component {
     private range = 50; // Map range in world units
 
     private spawnManager: SpawnManager | null = null;
+    private tileManager: TileManagerComponent | null = null;
     private player: Entity | null = null;
 
     constructor() {
@@ -35,11 +42,29 @@ export default class MiniMap extends Component {
         if (spawnManagerEntity) {
             this.spawnManager = spawnManagerEntity.GetComponent('SpawnManager') as SpawnManager;
         }
+        const level = this.FindEntity('Level');
+        if (level) {
+            this.tileManager = level.GetComponent('TileManager') as TileManagerComponent | undefined ?? null;
+        }
         this.player = this.FindEntity('Player') as Entity;
     }
 
+    /** Get all entities with a specific component from TileManager */
+    private getEntitiesWithComponent(componentName: string): IEntity[] {
+        if (!this.tileManager) return [];
+        const result: IEntity[] = [];
+        for (const tile of this.tileManager.tiles) {
+            for (const entity of tile.entities) {
+                if (entity.GetComponent(componentName)) {
+                    result.push(entity);
+                }
+            }
+        }
+        return result;
+    }
+
     override Update(_deltaTime: number): void {
-        if (!this.player || !this.spawnManager) return;
+        if (!this.player) return;
 
         // Clear
         this.ctx.clearRect(0, 0, this.size, this.size);
@@ -65,20 +90,28 @@ export default class MiniMap extends Component {
         const playerPos = this.player.Position;
         const playerRot = this.player.Rotation;
 
-        // Rotating map: "Forward" is Up.
-
         // Draw Player (Center)
         this.ctx.fillStyle = '#00ff00';
         this.ctx.beginPath();
         this.ctx.arc(this.size / 2, this.size / 2, 4, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Draw Animals
-        this.drawEntities(this.spawnManager.GetRabbits(), 'white', playerRot, playerPos);
-        this.drawEntities(this.spawnManager.GetFoxes(), 'red', playerRot, playerPos);
+        // Get animals from SpawnManager
+        if (this.spawnManager) {
+            this.drawEntities(this.spawnManager.GetRabbits(), 'white', playerRot, playerPos, 3);
+            this.drawEntities(this.spawnManager.GetFoxes(), 'orange', playerRot, playerPos, 4);
+            this.drawEntities(this.spawnManager.GetTrexes(), 'red', playerRot, playerPos, 6);
+            this.drawEntities(this.spawnManager.GetApatosauruses(), 'cyan', playerRot, playerPos, 5);
+        }
+
+        // Also get animals from TileManager (dynamically spawned)
+        this.drawEntities(this.getEntitiesWithComponent('RabbitController'), 'white', playerRot, playerPos, 3);
+        this.drawEntities(this.getEntitiesWithComponent('FoxController'), 'orange', playerRot, playerPos, 4);
+        this.drawEntities(this.getEntitiesWithComponent('TRexController'), 'red', playerRot, playerPos, 6);
+        this.drawEntities(this.getEntitiesWithComponent('ApatosaurusController'), 'cyan', playerRot, playerPos, 5);
     }
 
-    private drawEntities(entities: Entity[], color: string, playerRot: THREE.Quaternion, playerPos: THREE.Vector3) {
+    private drawEntities(entities: IEntity[], color: string, playerRot: THREE.Quaternion, playerPos: THREE.Vector3, dotSize: number = 3) {
         this.ctx.fillStyle = color;
 
         // Player Coordinate System
@@ -113,7 +146,7 @@ export default class MiniMap extends Component {
             const distSq = (cx - this.size / 2) ** 2 + (cy - this.size / 2) ** 2;
             if (distSq < (this.size / 2 - 2) ** 2) {
                 this.ctx.beginPath();
-                this.ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                this.ctx.arc(cx, cy, dotSize, 0, Math.PI * 2);
                 this.ctx.fill();
             }
         }

@@ -237,7 +237,7 @@ export const TREX_ENTITY_CONFIG: AnimalConfig = {
   animalType: 'trex',
   health: 150,
   maxHealth: 150,
-  speed: 3.0,
+  speed: 1.5, // Very slow
   baseScale: 0.025,
   colliderRadius: 6.0,
   colliderYOffset: 0.8,
@@ -247,14 +247,14 @@ export const TREX_ENTITY_CONFIG: AnimalConfig = {
 
 /**
  * T-Rex behavior configuration.
- * Slow but massive damage.
+ * Very slow but massive damage.
  */
 export const TREX_BEHAVIOR_CONFIG: BehaviorConfig = {
   type: 'predator',
   viewDistance: 30.0,
   attackDistance: 4.0,
   attackDamage: 50, // Massive damage
-  chaseSpeed: 4.0,
+  chaseSpeed: 2.0, // Slow chase
 };
 
 // ============================================================================

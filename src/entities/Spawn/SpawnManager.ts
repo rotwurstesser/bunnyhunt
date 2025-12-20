@@ -86,6 +86,14 @@ export default class SpawnManager extends Component {
     return this.foxes;
   }
 
+  public GetTrexes(): Entity[] {
+    return this.trexes;
+  }
+
+  public GetApatosauruses(): Entity[] {
+    return this.apatosauruses;
+  }
+
   /** Active T-Rex entities */
   private trexes: Entity[] = [];
 
