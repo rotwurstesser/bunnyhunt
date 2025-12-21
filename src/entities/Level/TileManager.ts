@@ -68,14 +68,12 @@ export default class TileManager extends Component {
   private grassMaterial: THREE.MeshStandardMaterial | null = null;
 
   // Tile settings
+  // Tile settings
   private tileSize = 40;
-  private triggerDistance = 18;
-  private maxTiles = 15;
 
   // Tile tracking
   private tiles: TileData[] = [];
-  private currentTileX = 0;
-  private currentTileZ = 0;
+
 
   // Pre-generated tile ready to add
   private preparedTile: PreparedTileData | null = null;
@@ -127,13 +125,23 @@ export default class TileManager extends Component {
     const rabbitCount = 1 + Math.floor(Math.random() * 2); // 1-2 rabbits
     const foxCount = Math.random() < 0.2 ? 1 : 0; // 20% chance for fox (reduced by 60%)
 
+    // Check caps for dinos
+    const currentTrexCount = this.GetEntityCount('TRexController');
+    const trexCount = (Math.random() < 0.05 && currentTrexCount < 2) ? 1 : 0;
+
+    const currentApatoCount = this.GetEntityCount('ApatosaurusController');
+    const apatosaurusCount = (Math.random() < 0.1 && currentApatoCount < 4) ? 1 : 0;
+
     this.preparedTile = {
       x: tileX,
       z: tileZ,
       treeCount,
       rabbitCount,
       foxCount,
+      trexCount,
+      apatosaurusCount
     };
+
   }
 
   CreateTile(tileX: number, tileZ: number): TileData {
@@ -280,10 +288,10 @@ export default class TileManager extends Component {
 
     this.tiles.push(tile);
 
-    // Check if we need to remove old tiles
-    if (this.tiles.length > this.maxTiles) {
-      this.RemoveOldestTile();
-    }
+
+    // NOTE: Pruning is now handled by CheckForNewTiles -> PruneTiles
+    // We don't limit by simple count anymore, but by "desired set"
+
 
     // Prepare next tile
     this.preparedTile = null;
@@ -298,8 +306,8 @@ export default class TileManager extends Component {
     const x = centerX + (Math.random() - 0.5) * 2 * halfSize;
     const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
 
-    // Use tree1 or tree2 model randomly
-    const treeModel = Math.random() < 0.5 ? this.assets.tree1 : this.assets.tree2;
+    const isPine = Math.random() < 0.5;
+    const treeModel = isPine ? this.assets.tree2 : this.assets.tree1; // Assuming tree2 is pine-like
 
     if (!treeModel) {
       // Fallback to simple cone tree if models not loaded
@@ -340,8 +348,16 @@ export default class TileManager extends Component {
     // Clone the tree model
     const treeClone = treeModel.clone();
 
-    // Random scale variation (0.8 to 1.5)
-    const scale = 0.8 + Math.random() * 0.7;
+    // Specific scaling based on tree type
+    let scale = 1.0;
+    if (isPine) {
+      // Pine trees: [3.0, 5.0]
+      scale = 3.0 + Math.random() * 2.0;
+    } else {
+      // Other trees: [1.2, 1.8]
+      scale = 1.2 + Math.random() * 0.6;
+    }
+
     treeClone.scale.set(scale, scale, scale);
 
     // Random rotation
@@ -356,11 +372,11 @@ export default class TileManager extends Component {
 
     // Physics collider (cylinder for trunk)
     const colliderRadius = 0.5 * scale;
-    const colliderHeight = 2 * scale;
-    const treeShape = new Ammo.btCylinderShape(new Ammo.btVector3(colliderRadius, colliderHeight, colliderRadius));
+    const colliderHeight = 2.0 * scale; // Increased height for bigger trees
+    const treeShape = new Ammo.btCylinderShape(new Ammo.btVector3(colliderRadius, colliderHeight / 2, colliderRadius));
     const treeTransform = new Ammo.btTransform();
     treeTransform.setIdentity();
-    treeTransform.setOrigin(new Ammo.btVector3(x, colliderHeight, z));
+    treeTransform.setOrigin(new Ammo.btVector3(x, colliderHeight / 2, z));
     const treeMotionState = new Ammo.btDefaultMotionState(treeTransform);
     const treeInfo = new Ammo.btRigidBodyConstructionInfo(0, treeMotionState, treeShape, new Ammo.btVector3(0, 0, 0));
     const treeBody = new Ammo.btRigidBody(treeInfo);
@@ -625,23 +641,19 @@ export default class TileManager extends Component {
     return entity;
   }
 
-  RemoveOldestTile(): void {
-    if (this.tiles.length === 0) return;
-
-    const oldTile = this.tiles.shift()!;
-
+  RemoveTile(tile: TileData, activeTiles: TileData[]): void {
     // Remove all 3D objects
-    for (const obj of oldTile.objects) {
-      if ('cleanup' in obj && typeof obj.cleanup === 'function') {
-        obj.cleanup();
+    for (const obj of tile.objects) {
+      if ('cleanup' in obj && typeof (obj as any).cleanup === 'function') {
+        (obj as any).cleanup();
       } else if (obj instanceof THREE.Mesh) {
         this.scene.remove(obj);
       }
     }
 
     // Remove physics bodies
-    if (oldTile.physicsBodies) {
-      for (const body of oldTile.physicsBodies) {
+    if (tile.physicsBodies) {
+      for (const body of tile.physicsBodies) {
         try {
           this.physicsWorld.removeRigidBody(body);
         } catch (e) {
@@ -650,42 +662,53 @@ export default class TileManager extends Component {
       }
     }
 
-    // Remove all entities (animals, pickups, etc.)
-    for (const entity of oldTile.entities) {
-      // Handle animal controllers
-      const animalController =
+    // Handle ENTITIES (Relocation Logic)
+    // We want to relocate ALL living entities to a valid tile (one of the active ones)
+    // instead of destroying them.
+    for (const entity of tile.entities) {
+      // Pickups can be destroyed (or relocated if preferred, but usually they are plentiful)
+      // The user requested "any enemy" and "rabbits, foxes, dinos" be moved.
+      // Let's identify "living" things or important things.
+      const isLiving =
         entity.GetComponent('RabbitController') ||
         entity.GetComponent('FoxController') ||
         entity.GetComponent('TRexController') ||
-        entity.GetComponent('ApatosaurusController');
+        entity.GetComponent('ApatosaurusController') ||
+        entity.GetComponent('NpcCharacterController'); // Just in case
 
-      // Check for persistent animals (T-Rex, Apatosaurus) to relocate
-      const isPersistent =
-        entity.GetComponent('TRexController') || entity.GetComponent('ApatosaurusController');
-
-      if (isPersistent && !(animalController as any).isDead) {
-        // Relocate to the newest tile (last in list)
-        if (this.tiles.length > 0) {
-          const targetTile = this.tiles[this.tiles.length - 1];
+      if (isLiving) {
+        // Relocate!
+        if (activeTiles.length > 0) {
+          // Pick a random target tile from the active set
+          // Ideally one far away? For now random is safe enough to avoid piling up on one tile.
+          const targetTile = activeTiles[Math.floor(Math.random() * activeTiles.length)];
           this.RelocateEntity(entity, targetTile);
-          continue; // Skip cleanup/remove
+        } else {
+          // No active tiles? Should not happen if game is running.
+          // Just cleanup.
+          this.CleanupEntity(entity);
         }
+      } else {
+        // Pickups, etc. - Destroy them
+        this.CleanupEntity(entity);
       }
 
-      if (animalController && 'Cleanup' in animalController) {
-        (animalController as any).Cleanup();
-      }
-      // Handle weapon pickups
-      const weaponPickup = entity.GetComponent('WeaponPickup');
-      if (weaponPickup && 'Cleanup' in weaponPickup) {
-        (weaponPickup as any).Cleanup();
-      }
-      // Handle ammo pickups
-      const ammoPickup = entity.GetComponent('AmmoPickup');
-      if (ammoPickup && 'Cleanup' in ammoPickup) {
-        (ammoPickup as any).Cleanup();
-      }
       this.entityManager.Remove(entity);
+    }
+  }
+
+  CleanupEntity(entity: Entity): void {
+    // General cleanup helper
+    const components = [
+      'RabbitController', 'FoxController', 'TRexController', 'ApatosaurusController',
+      'WeaponPickup', 'AmmoPickup'
+    ];
+
+    for (const c of components) {
+      const comp = entity.GetComponent(c as any);
+      if (comp && 'Cleanup' in comp) {
+        (comp as any).Cleanup();
+      }
     }
   }
 
@@ -711,7 +734,10 @@ export default class TileManager extends Component {
     const z = centerZ + (Math.random() - 0.5) * 2 * halfSize;
 
     const animalController =
-      entity.GetComponent('TRexController') || entity.GetComponent('ApatosaurusController');
+      entity.GetComponent('RabbitController') ||
+      entity.GetComponent('FoxController') ||
+      entity.GetComponent('TRexController') ||
+      entity.GetComponent('ApatosaurusController');
 
     if (animalController) {
       // Move visual model
@@ -742,33 +768,121 @@ export default class TileManager extends Component {
   CheckForNewTiles(): void {
     if (!this.player) return;
 
-    const pos = this.player.Position;
+    // NEW LOGIC: Field of View / Directional Generation
+    this.UpdateTiles();
+  }
+
+  UpdateTiles(): void {
+    const desiredCoords = this.GetDesiredTiles();
+
+    // 1. Create missing tiles
+    for (const coord of desiredCoords) {
+      this.EnsureTileExists(coord.x, coord.z);
+    }
+
+    // 2. Prune tiles that are not in desired set
+    this.PruneTiles(desiredCoords);
+  }
+
+  GetDesiredTiles(): { x: number, z: number }[] {
+    if (!this.player) return [];
+
     const playerTile = this.GetPlayerTile();
+    const desired = [];
 
-    // Check distance to each edge of current tile
-    const tileCenterX = playerTile.x * this.tileSize;
-    const tileCenterZ = playerTile.z * this.tileSize;
-    const halfTile = this.tileSize / 2;
+    // Determine player direction
+    // Retrieve rotation from player entity
+    const rotation = this.player.Rotation;
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(rotation);
 
-    // Distance to edges
-    const distToRight = tileCenterX + halfTile - pos.x;
-    const distToLeft = pos.x - (tileCenterX - halfTile);
-    const distToFront = tileCenterZ + halfTile - pos.z;
-    const distToBack = pos.z - (tileCenterZ - halfTile);
+    // Determine cardinal direction
+    // North: -Z, South: +Z, East: +X, West: -X
+    const absX = Math.abs(forward.x);
+    const absZ = Math.abs(forward.z);
 
-    // Check if we need to create tiles in any direction
-    if (distToRight < this.triggerDistance) {
-      this.EnsureTileExists(playerTile.x + 1, playerTile.z);
+    // Config
+    const forwardDepth = 4; // FOV
+    const backDepth = 2;
+    const sideWidth = 2; // tiles to left/right center
+
+    // Ranges
+    let minX = 0, maxX = 0, minZ = 0, maxZ = 0;
+
+    if (absZ > absX) {
+      // Facing North or South
+      const isNorth = forward.z < 0;
+
+      // Side range is X
+      minX = playerTile.x - sideWidth;
+      maxX = playerTile.x + sideWidth;
+
+      if (isNorth) {
+        // Facing -Z
+        minZ = playerTile.z - forwardDepth;
+        maxZ = playerTile.z + backDepth;
+      } else {
+        // Facing +Z
+        minZ = playerTile.z - backDepth;
+        maxZ = playerTile.z + forwardDepth;
+      }
+    } else {
+      // Facing East or West
+      const isEast = forward.x > 0;
+
+      // Side range is Z
+      minZ = playerTile.z - sideWidth;
+      maxZ = playerTile.z + sideWidth;
+
+      if (isEast) {
+        // Facing +X
+        minX = playerTile.x - backDepth;
+        maxX = playerTile.x + forwardDepth;
+      } else {
+        // Facing -X
+        minX = playerTile.x - forwardDepth;
+        maxX = playerTile.x + backDepth;
+      }
     }
-    if (distToLeft < this.triggerDistance) {
-      this.EnsureTileExists(playerTile.x - 1, playerTile.z);
+
+    // Generate coords
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        desired.push({ x, z });
+      }
     }
-    if (distToFront < this.triggerDistance) {
-      this.EnsureTileExists(playerTile.x, playerTile.z + 1);
+
+    return desired;
+  }
+
+  PruneTiles(desiredCoords: { x: number, z: number }[]): void {
+    // Identify tiles to remove
+    const tilesToRemove: TileData[] = [];
+    const tilesToKeep: TileData[] = [];
+
+    const desiredSet = new Set(desiredCoords.map(c => `${c.x},${c.z}`));
+
+    for (const tile of this.tiles) {
+      const key = `${tile.x},${tile.z}`;
+      if (!desiredSet.has(key)) {
+        tilesToRemove.push(tile);
+      } else {
+        tilesToKeep.push(tile);
+      }
     }
-    if (distToBack < this.triggerDistance) {
-      this.EnsureTileExists(playerTile.x, playerTile.z - 1);
+
+    if (tilesToRemove.length === 0) return;
+
+    // Update this.tiles immediately to reflect kept tiles (so relocation CAN find them)
+    this.tiles = tilesToKeep;
+
+    // Now remove the old ones and relocate entities to the KEEP set
+    for (const tile of tilesToRemove) {
+      this.RemoveTile(tile, tilesToKeep);
     }
+
+    console.log(`Pruned ${tilesToRemove.length} tiles. Active: ${this.tiles.length}`);
+
   }
 
   EnsureTileExists(tileX: number, tileZ: number): void {
