@@ -3,3 +3,6 @@ dist
 .DS_Store
 .env
 temp_fps_base/
+
+# Local Netlify folder
+.netlify
